@@ -31,7 +31,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Check, Pencil, Trash2, Eye, EyeOff, UserCheck, Percent, Banknote } from 'lucide-react';
+import { ArrowLeft, Plus, Check, Pencil, Trash2, Eye, EyeOff, UserCheck, Percent, Banknote, KeyRound } from 'lucide-react';
 import { z } from 'zod';
 
 interface Employee {
@@ -80,6 +80,13 @@ export default function EmployeeManagement() {
   const [fixedCommission, setFixedCommission] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  // Password reset state
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetEmployee, setResetEmployee] = useState<Employee | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const fetchData = async () => {
     if (!id) return;
@@ -308,6 +315,49 @@ export default function EmployeeManagement() {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!resetEmployee?.user_id || !newPassword) {
+      toast.error('Please enter a new password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsResetting(true);
+
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      
+      const response = await supabase.functions.invoke('admin-reset-password', {
+        body: {
+          userId: resetEmployee.user_id,
+          newPassword,
+          employeeId: resetEmployee.id,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to reset password');
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      toast.success(`Password updated for ${resetEmployee.name}`);
+      setResetDialogOpen(false);
+      setNewPassword('');
+      setResetEmployee(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to reset password');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const getEmployeeStats = (employeeId: string) => {
     const empTransactions = transactions.filter((t) => t.employee_id === employeeId);
     const totalSales = empTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0);
@@ -514,6 +564,53 @@ export default function EmployeeManagement() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Password Reset Dialog */}
+        <Dialog open={resetDialogOpen} onOpenChange={(open) => {
+          setResetDialogOpen(open);
+          if (!open) {
+            setNewPassword('');
+            setResetEmployee(null);
+          }
+        }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Reset Password</DialogTitle>
+              <DialogDescription>
+                Set a new password for {resetEmployee?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>New Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    className="h-12 rounded-xl pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              <Button 
+                className="w-full h-12 rounded-xl" 
+                onClick={handleResetPassword} 
+                disabled={isResetting || !newPassword}
+              >
+                {isResetting ? 'Resetting...' : 'Reset Password'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Employees Grid */}
@@ -567,14 +664,30 @@ export default function EmployeeManagement() {
                         size="icon"
                         onClick={() => handleOpenDialog(emp)}
                         className="rounded-xl"
+                        title="Edit employee"
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
+                      {emp.user_id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setResetEmployee(emp);
+                            setResetDialogOpen(true);
+                          }}
+                          className="rounded-xl"
+                          title="Reset password"
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(emp.id)}
                         className="rounded-xl text-destructive hover:text-destructive"
+                        title="Delete employee"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
