@@ -25,13 +25,14 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  DollarSign,
   TrendingUp,
   Users,
   Plus,
   ArrowLeft,
   Calendar,
   Zap,
+  Settings,
+  Banknote,
 } from 'lucide-react';
 
 interface Employee {
@@ -362,6 +363,20 @@ export default function BusinessDashboard() {
             <p className="text-muted-foreground capitalize">{business?.type}</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <Link to={`/business/${id}/employees`}>
+            <Button variant="outline" size="sm">
+              <Users className="w-4 h-4 mr-2" />
+              Employees
+            </Button>
+          </Link>
+          <Link to={`/business/${id}/settings`}>
+            <Button variant="outline" size="sm">
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+          </Link>
+        </div>
         <div className="flex items-center gap-3">
           <Select
             value={timeFilter}
@@ -425,14 +440,14 @@ export default function BusinessDashboard() {
                     <SelectContent>
                       {services.map((svc) => (
                         <SelectItem key={svc.id} value={svc.id}>
-                          {svc.name} - ${svc.base_price}
+                          {svc.name} - {formatCurrency(svc.base_price)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Amount ($)</Label>
+                  <Label>Amount (₦)</Label>
                   <Input
                     type="number"
                     value={saleAmount}
@@ -494,7 +509,7 @@ export default function BusinessDashboard() {
                 <p className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-primary" />
+                <Banknote className="w-6 h-6 text-primary" />
               </div>
             </div>
           </CardContent>
