@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
 import { useBusinessUnits } from '@/hooks/useBusinessUnits';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
 import {
   Sheet,
   SheetContent,
@@ -17,8 +19,6 @@ import {
   Sparkles,
   Shirt,
   Building2,
-  Users,
-  Settings,
   LogOut,
   Plus,
   Menu,
@@ -26,6 +26,8 @@ import {
   TrendingUp,
   ChevronRight,
   Wallet,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { businessUnits } = useBusinessUnits();
+  const { theme, setTheme } = useTheme();
 
   const handleSignOut = async () => {
     await signOut();
@@ -147,7 +150,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </ScrollArea>
 
       {/* User */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-3">
+        {/* Dark Mode Toggle */}
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-sidebar-accent/30">
+          <div className="flex items-center gap-2">
+            {theme === 'dark' ? (
+              <Moon className="w-4 h-4 text-sidebar-foreground/70" />
+            ) : (
+              <Sun className="w-4 h-4 text-sidebar-foreground/70" />
+            )}
+            <span className="text-sm text-sidebar-foreground/70">Dark Mode</span>
+          </div>
+          <Switch
+            checked={theme === 'dark'}
+            onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+            className="data-[state=checked]:bg-sidebar-primary"
+          />
+        </div>
+        
         <div className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent/50">
           <Avatar className="w-10 h-10">
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground font-semibold">
