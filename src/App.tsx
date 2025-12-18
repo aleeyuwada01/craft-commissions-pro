@@ -14,6 +14,7 @@ import NewBusiness from "@/pages/NewBusiness";
 import BusinessDashboard from "@/pages/BusinessDashboard";
 import EmployeeManagement from "@/pages/EmployeeManagement";
 import BusinessSettings from "@/pages/Settings";
+import GlobalSettings from "@/pages/GlobalSettings";
 import Reports from "@/pages/Reports";
 import NotFound from "@/pages/NotFound";
 
@@ -179,7 +180,7 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <GlobalSettings />
           </ProtectedRoute>
         }
       />
