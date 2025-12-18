@@ -31,8 +31,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Check, Pencil, Trash2, Eye, EyeOff, UserCheck, Percent, Banknote, KeyRound } from 'lucide-react';
+import { ArrowLeft, Plus, Check, Pencil, Trash2, Eye, EyeOff, UserCheck, Percent, Banknote, KeyRound, Activity } from 'lucide-react';
 import { z } from 'zod';
+import { EmployeeActivityLog } from '@/components/EmployeeActivityLog';
+import { logActivity } from '@/hooks/useActivityLog';
 
 interface Employee {
   id: string;
@@ -87,6 +89,10 @@ export default function EmployeeManagement() {
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Activity log state
+  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [activityEmployee, setActivityEmployee] = useState<Employee | null>(null);
 
   const fetchData = async () => {
     if (!id) return;
@@ -346,6 +352,13 @@ export default function EmployeeManagement() {
       if (response.data?.error) {
         throw new Error(response.data.error);
       }
+
+      // Log the password change activity
+      await logActivity({
+        employeeId: resetEmployee.id,
+        action: 'password_changed',
+        details: 'Password was reset by admin',
+      });
 
       toast.success(`Password updated for ${resetEmployee.name}`);
       setResetDialogOpen(false);
@@ -611,6 +624,27 @@ export default function EmployeeManagement() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Activity Log Dialog */}
+        <Dialog open={activityDialogOpen} onOpenChange={(open) => {
+          setActivityDialogOpen(open);
+          if (!open) setActivityEmployee(null);
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Activity Log</DialogTitle>
+              <DialogDescription>
+                View recent activity and login history
+              </DialogDescription>
+            </DialogHeader>
+            {activityEmployee && (
+              <EmployeeActivityLog 
+                employeeId={activityEmployee.id} 
+                employeeName={activityEmployee.name}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Employees Grid */}
@@ -669,18 +703,32 @@ export default function EmployeeManagement() {
                         <Pencil className="w-4 h-4" />
                       </Button>
                       {emp.user_id && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setResetEmployee(emp);
-                            setResetDialogOpen(true);
-                          }}
-                          className="rounded-xl"
-                          title="Reset password"
-                        >
-                          <KeyRound className="w-4 h-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setResetEmployee(emp);
+                              setResetDialogOpen(true);
+                            }}
+                            className="rounded-xl"
+                            title="Reset password"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setActivityEmployee(emp);
+                              setActivityDialogOpen(true);
+                            }}
+                            className="rounded-xl"
+                            title="View activity"
+                          >
+                            <Activity className="w-4 h-4" />
+                          </Button>
+                        </>
                       )}
                       <Button
                         variant="ghost"

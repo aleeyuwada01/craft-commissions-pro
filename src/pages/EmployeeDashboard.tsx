@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/currency';
+import { logActivity } from '@/hooks/useActivityLog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +63,7 @@ export default function EmployeeDashboard() {
   const [employee, setEmployee] = useState<EmployeeData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoggedLogin = useRef(false);
 
   useEffect(() => {
     if (!user) return;
@@ -83,6 +85,16 @@ export default function EmployeeDashboard() {
 
       if (employeeData) {
         setEmployee(employeeData);
+
+        // Log login activity (only once per session)
+        if (!hasLoggedLogin.current) {
+          hasLoggedLogin.current = true;
+          logActivity({
+            employeeId: employeeData.id,
+            action: 'login',
+            details: 'Accessed employee dashboard',
+          });
+        }
 
         // Fetch transactions for this employee
         const { data: transactionsData } = await supabase
