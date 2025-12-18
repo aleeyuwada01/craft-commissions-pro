@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
+import { logActivity } from '@/hooks/useActivityLog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -281,6 +282,14 @@ export default function BusinessDashboard() {
     if (error) {
       toast.error('Failed to record sale: ' + error.message);
     } else {
+      // Log activity for the employee
+      const service = services.find(s => s.id === selectedService);
+      await logActivity({
+        employeeId: selectedEmployee,
+        action: 'sale_recorded',
+        details: `Sale of ${formatCurrency(amount)} for ${service?.name || 'service'}`,
+      });
+
       toast.success(
         `Sale recorded! ${employee.name} earns ${formatCurrency(commission)}`
       );

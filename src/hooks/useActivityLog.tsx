@@ -6,7 +6,9 @@ export type ActivityAction =
   | 'view_dashboard'
   | 'view_commissions'
   | 'password_changed'
-  | 'profile_updated';
+  | 'profile_updated'
+  | 'sale_recorded'
+  | 'commission_paid';
 
 interface LogActivityParams {
   employeeId: string;
@@ -40,6 +42,8 @@ export function getActionLabel(action: string): string {
     view_commissions: 'Viewed commissions',
     password_changed: 'Password was changed',
     profile_updated: 'Profile updated',
+    sale_recorded: 'Sale recorded',
+    commission_paid: 'Commission paid',
   };
   return labels[action] || action;
 }
@@ -52,6 +56,8 @@ export function getActionIcon(action: string): string {
     view_commissions: '💰',
     password_changed: '🔑',
     profile_updated: '👤',
+    sale_recorded: '🛒',
+    commission_paid: '✅',
   };
   return icons[action] || '📝';
 }
