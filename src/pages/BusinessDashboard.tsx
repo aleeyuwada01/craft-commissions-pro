@@ -36,6 +36,8 @@ interface Employee {
   id: string;
   name: string;
   commission_percentage: number;
+  commission_type: string;
+  fixed_commission: number;
 }
 
 interface Service {
@@ -116,7 +118,7 @@ export default function BusinessDashboard() {
     // Fetch employees
     const { data: employeesData } = await supabase
       .from('employees')
-      .select('id, name, commission_percentage')
+      .select('id, name, commission_percentage, commission_type, fixed_commission')
       .eq('business_id', id)
       .eq('is_active', true);
 
@@ -224,7 +226,15 @@ export default function BusinessDashboard() {
     if (!employee) return;
 
     const amount = parseFloat(saleAmount);
-    const commission = amount * (employee.commission_percentage / 100);
+    
+    // Calculate commission based on type
+    let commission: number;
+    if (employee.commission_type === 'fixed') {
+      commission = employee.fixed_commission || 0;
+    } else {
+      commission = amount * (employee.commission_percentage / 100);
+    }
+    
     const houseAmount = amount - commission;
 
     setIsRecording(true);
@@ -242,7 +252,7 @@ export default function BusinessDashboard() {
       toast.error('Failed to record sale: ' + error.message);
     } else {
       toast.success(
-        `Sale recorded! ${employee.name} earns $${commission.toFixed(2)} commission.`
+        `Sale recorded! ${employee.name} earns ${formatCurrency(commission)}`
       );
       setSaleDialogOpen(false);
       setSelectedEmployee('');
@@ -366,35 +376,36 @@ export default function BusinessDashboard() {
                   />
                 </div>
                 {selectedEmployee && saleAmount && (
-                  <div className="p-4 bg-secondary rounded-lg">
+                  <div className="p-4 bg-secondary rounded-xl">
                     <p className="text-sm text-muted-foreground mb-2">Commission Preview</p>
-                    <div className="flex justify-between">
-                      <span>Employee gets:</span>
-                      <span className="font-semibold text-primary">
-                        {formatCurrency(
-                          parseFloat(saleAmount) *
-                            ((employees.find((e) => e.id === selectedEmployee)
-                              ?.commission_percentage || 0) /
-                              100)
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <span>House gets:</span>
-                      <span className="font-semibold">
-                        {formatCurrency(
-                          parseFloat(saleAmount) -
-                            parseFloat(saleAmount) *
-                              ((employees.find((e) => e.id === selectedEmployee)
-                                ?.commission_percentage || 0) /
-                                100)
-                        )}
-                      </span>
-                    </div>
+                    {(() => {
+                      const emp = employees.find((e) => e.id === selectedEmployee);
+                      const amount = parseFloat(saleAmount) || 0;
+                      const commission = emp?.commission_type === 'fixed' 
+                        ? (emp?.fixed_commission || 0)
+                        : amount * ((emp?.commission_percentage || 0) / 100);
+                      const house = amount - commission;
+                      return (
+                        <>
+                          <div className="flex justify-between">
+                            <span>Employee gets:</span>
+                            <span className="font-semibold text-primary">
+                              {formatCurrency(commission)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between mt-1">
+                            <span>House gets:</span>
+                            <span className="font-semibold">
+                              {formatCurrency(house)}
+                            </span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
                 <Button
-                  className="w-full"
+                  className="w-full h-12 rounded-xl"
                   onClick={handleRecordSale}
                   disabled={isRecording || !selectedEmployee || !selectedService || !saleAmount}
                 >
