@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useBusinessUnits } from '@/hooks/useBusinessUnits';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { formatCurrency } from '@/lib/currency';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,10 +19,10 @@ const businessTemplates = [
     icon: Camera,
     color: '#6366f1',
     services: [
-      { name: 'Wedding Shoot', base_price: 1500 },
-      { name: 'Event Coverage', base_price: 800 },
-      { name: 'Studio Session', base_price: 200 },
-      { name: 'Portrait Photography', base_price: 150 },
+      { name: 'Wedding Shoot', base_price: 500000 },
+      { name: 'Event Coverage', base_price: 250000 },
+      { name: 'Studio Session', base_price: 50000 },
+      { name: 'Portrait Photography', base_price: 30000 },
     ],
   },
   {
@@ -30,10 +31,10 @@ const businessTemplates = [
     icon: Sparkles,
     color: '#ec4899',
     services: [
-      { name: 'Bridal Makeup', base_price: 250 },
-      { name: 'Glow Up', base_price: 80 },
-      { name: 'Eyebrow Shaping', base_price: 25 },
-      { name: 'Party Makeup', base_price: 100 },
+      { name: 'Bridal Makeup', base_price: 150000 },
+      { name: 'Glow Up', base_price: 25000 },
+      { name: 'Eyebrow Shaping', base_price: 5000 },
+      { name: 'Party Makeup', base_price: 35000 },
     ],
   },
   {
@@ -42,10 +43,10 @@ const businessTemplates = [
     icon: Shirt,
     color: '#22c55e',
     services: [
-      { name: 'T-Shirt', base_price: 25 },
-      { name: 'Dress', base_price: 60 },
-      { name: 'Alteration Service', base_price: 15 },
-      { name: 'Custom Tailoring', base_price: 150 },
+      { name: 'T-Shirt', base_price: 8000 },
+      { name: 'Dress', base_price: 25000 },
+      { name: 'Alteration Service', base_price: 3000 },
+      { name: 'Custom Tailoring', base_price: 50000 },
     ],
   },
   {
@@ -234,7 +235,7 @@ export default function NewBusiness() {
                   >
                     <span className="text-foreground">{service.name}</span>
                     <span className="text-muted-foreground">
-                      ${service.base_price}
+                      {formatCurrency(service.base_price)}
                     </span>
                   </div>
                 ))}
