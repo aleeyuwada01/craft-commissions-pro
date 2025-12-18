@@ -1,11 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useBusinessUnits } from '@/hooks/useBusinessUnits';
 import { formatCurrency } from '@/lib/currency';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
 import {
   Wallet,
   Users,
@@ -16,7 +30,10 @@ import {
   Camera,
   Sparkles,
   Shirt,
+  Zap,
+  Target,
 } from 'lucide-react';
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 
 const businessIcons: Record<string, React.ElementType> = {
   photography: Camera,
@@ -39,6 +56,15 @@ interface DashboardStats {
   }>;
 }
 
+interface Transaction {
+  id: string;
+  total_amount: number;
+  commission_amount: number;
+  house_amount: number;
+  created_at: string;
+  business_id: string;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { businessUnits, loading: businessLoading } = useBusinessUnits();
@@ -48,12 +74,14 @@ export default function Dashboard() {
     totalEmployees: 0,
     recentTransactions: [],
   });
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
 
     const fetchStats = async () => {
+      // Fetch recent transactions with details
       const { data: transactions } = await supabase
         .from('transactions')
         .select(`
@@ -64,10 +92,22 @@ export default function Dashboard() {
         .order('created_at', { ascending: false })
         .limit(5);
 
+      // Fetch employee count
       const { count: employeeCount } = await supabase
         .from('employees')
         .select('*', { count: 'exact', head: true });
 
+      // Fetch all transactions for charts (last 30 days)
+      const thirtyDaysAgo = subDays(new Date(), 30);
+      const { data: allTxn } = await supabase
+        .from('transactions')
+        .select('id, total_amount, commission_amount, house_amount, created_at, business_id')
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: true });
+
+      if (allTxn) setAllTransactions(allTxn);
+
+      // Calculate totals from all time
       const { data: allTransactions } = await supabase
         .from('transactions')
         .select('total_amount, commission_amount');
@@ -112,6 +152,63 @@ export default function Dashboard() {
     };
   }, [user]);
 
+  // Daily revenue chart data (last 7 days)
+  const dailyData = useMemo(() => {
+    const days = eachDayOfInterval({
+      start: subDays(new Date(), 6),
+      end: new Date(),
+    });
+
+    return days.map(day => {
+      const dayStart = startOfDay(day);
+      const dayEnd = endOfDay(day);
+      const dayTransactions = allTransactions.filter(t => {
+        const date = new Date(t.created_at);
+        return date >= dayStart && date <= dayEnd;
+      });
+
+      return {
+        day: format(day, 'EEE'),
+        date: format(day, 'MMM d'),
+        revenue: dayTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0),
+        house: dayTransactions.reduce((sum, t) => sum + Number(t.house_amount), 0),
+      };
+    });
+  }, [allTransactions]);
+
+  // Today's stats
+  const todayStats = useMemo(() => {
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    const todayTransactions = allTransactions.filter(t => {
+      const date = new Date(t.created_at);
+      return date >= todayStart && date <= todayEnd;
+    });
+
+    return {
+      revenue: todayTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0),
+      sales: todayTransactions.length,
+      commissions: todayTransactions.reduce((sum, t) => sum + Number(t.commission_amount), 0),
+    };
+  }, [allTransactions]);
+
+  // Business distribution data for pie chart
+  const businessDistribution = useMemo(() => {
+    const colors = ['hsl(var(--primary))', 'hsl(var(--warning))', 'hsl(var(--info))', '#10b981', '#8b5cf6'];
+    
+    const distribution = businessUnits.map((bu, index) => {
+      const buTransactions = allTransactions.filter(t => t.business_id === bu.id);
+      const revenue = buTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0);
+      return {
+        name: bu.name,
+        value: revenue,
+        color: bu.color || colors[index % colors.length],
+      };
+    }).filter(d => d.value > 0);
+
+    return distribution;
+  }, [allTransactions, businessUnits]);
+
   if (loading || businessLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -137,6 +234,35 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* Today's Quick Stats */}
+      <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Today&apos;s Summary</h3>
+              <p className="text-xs text-muted-foreground">Real-time overview</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-3 rounded-xl bg-background/50">
+              <p className="text-2xl sm:text-3xl font-bold text-primary">{todayStats.sales}</p>
+              <p className="text-xs text-muted-foreground">Sales</p>
+            </div>
+            <div className="text-center p-3 rounded-xl bg-background/50">
+              <p className="text-lg sm:text-xl font-bold text-foreground">{formatCurrency(todayStats.revenue)}</p>
+              <p className="text-xs text-muted-foreground">Revenue</p>
+            </div>
+            <div className="text-center p-3 rounded-xl bg-background/50">
+              <p className="text-lg sm:text-xl font-bold text-warning">{formatCurrency(todayStats.commissions)}</p>
+              <p className="text-xs text-muted-foreground">Commissions</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards - 2x2 Grid on Mobile */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
@@ -201,6 +327,111 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Revenue Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Target className="w-5 h-5 text-primary" />
+              Weekly Revenue (Last 7 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dailyData}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₦${(v/1000).toFixed(0)}k`} />
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.date || label}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '0.5rem',
+                    }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    name="Revenue"
+                    stroke="hsl(var(--primary))" 
+                    fill="url(#colorRevenue)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Business Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="w-5 h-5 text-info" />
+              Revenue by Business
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {businessDistribution.length === 0 ? (
+              <div className="h-[220px] flex items-center justify-center">
+                <p className="text-sm text-muted-foreground text-center">
+                  No sales data yet
+                </p>
+              </div>
+            ) : (
+              <div className="h-[220px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={businessDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {businessDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '0.5rem',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-2 -mt-2">
+                  {businessDistribution.map((item, index) => (
+                    <div key={index} className="flex items-center gap-1.5 text-xs">
+                      <div 
+                        className="w-2.5 h-2.5 rounded-full" 
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="text-muted-foreground truncate max-w-[80px]">{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

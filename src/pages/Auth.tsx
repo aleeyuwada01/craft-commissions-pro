@@ -1,19 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Wallet, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Wallet, ArrowRight, ArrowLeft, Mail } from 'lucide-react';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 
+type AuthView = 'login' | 'signup' | 'forgot-password' | 'reset-sent';
+
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [view, setView] = useState<AuthView>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -30,7 +33,7 @@ export default function Auth() {
     }
   }, [user, loading, navigate]);
 
-  const validateForm = () => {
+  const validateForm = (checkPassword = true) => {
     const newErrors: { email?: string; password?: string } = {};
     
     const emailResult = emailSchema.safeParse(email);
@@ -38,9 +41,11 @@ export default function Auth() {
       newErrors.email = emailResult.error.errors[0].message;
     }
     
-    const passwordResult = passwordSchema.safeParse(password);
-    if (!passwordResult.success) {
-      newErrors.password = passwordResult.error.errors[0].message;
+    if (checkPassword) {
+      const passwordResult = passwordSchema.safeParse(password);
+      if (!passwordResult.success) {
+        newErrors.password = passwordResult.error.errors[0].message;
+      }
     }
     
     setErrors(newErrors);
@@ -55,7 +60,7 @@ export default function Auth() {
     setIsSubmitting(true);
     
     try {
-      if (isLogin) {
+      if (view === 'login') {
         const { error } = await signIn(email, password);
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
@@ -67,7 +72,7 @@ export default function Auth() {
           toast.success('Welcome back!');
           navigate('/');
         }
-      } else {
+      } else if (view === 'signup') {
         const { error } = await signUp(email, password, fullName);
         if (error) {
           if (error.message.includes('already registered')) {
@@ -85,6 +90,38 @@ export default function Auth() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm(false)) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
+      });
+      
+      if (error) {
+        toast.error(error.message);
+      } else {
+        setView('reset-sent');
+        toast.success('Password reset email sent!');
+      }
+    } catch (error) {
+      toast.error('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setFullName('');
+    setErrors({});
   };
 
   if (loading) {
@@ -111,111 +148,304 @@ export default function Auth() {
           
           {/* Card */}
           <Card className="border-0 shadow-xl shadow-black/5">
-            <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-xl text-center">
-                {isLogin ? 'Welcome back' : 'Create account'}
-              </CardTitle>
-              <CardDescription className="text-center">
-                {isLogin
-                  ? 'Sign in to manage your businesses'
-                  : 'Get started with JB-Manager'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input
-                      id="fullName"
-                      type="text"
-                      placeholder="John Doe"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+            {/* Login View */}
+            {view === 'login' && (
+              <>
+                <CardHeader className="space-y-1 pb-4">
+                  <CardTitle className="text-xl text-center">Welcome back</CardTitle>
+                  <CardDescription className="text-center">
+                    Sign in to manage your businesses
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (errors.email) setErrors({ ...errors, email: undefined });
+                        }}
+                        disabled={isSubmitting}
+                        className={`h-12 rounded-xl ${errors.email ? 'border-destructive' : ''}`}
+                      />
+                      {errors.email && (
+                        <p className="text-sm text-destructive">{errors.email}</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="password">Password</Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setView('forgot-password');
+                            setErrors({});
+                          }}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (errors.password) setErrors({ ...errors, password: undefined });
+                          }}
+                          disabled={isSubmitting}
+                          className={`h-12 rounded-xl ${errors.password ? 'border-destructive pr-10' : 'pr-10'}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {errors.password && (
+                        <p className="text-sm text-destructive">{errors.password}</p>
+                      )}
+                    </div>
+                    
+                    <Button
+                      type="submit"
+                      className="w-full h-12 rounded-xl text-base font-medium"
                       disabled={isSubmitting}
-                      className="h-12 rounded-xl"
-                    />
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (errors.email) setErrors({ ...errors, email: undefined });
-                    }}
-                    disabled={isSubmitting}
-                    className={`h-12 rounded-xl ${errors.email ? 'border-destructive' : ''}`}
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email}</p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (errors.password) setErrors({ ...errors, password: undefined });
-                      }}
-                      disabled={isSubmitting}
-                      className={`h-12 rounded-xl ${errors.password ? 'border-destructive pr-10' : 'pr-10'}`}
-                    />
+                    >
+                      {isSubmitting ? (
+                        'Signing in...'
+                      ) : (
+                        <>
+                          Sign In
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                  
+                  <div className="mt-6 text-center">
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setView('signup');
+                        resetForm();
+                      }}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      Don&apos;t have an account? Sign up
                     </button>
                   </div>
-                  {errors.password && (
-                    <p className="text-sm text-destructive">{errors.password}</p>
-                  )}
-                </div>
-                
-                <Button
-                  type="submit"
-                  className="w-full h-12 rounded-xl text-base font-medium"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    'Please wait...'
-                  ) : (
-                    <>
-                      {isLogin ? 'Sign In' : 'Create Account'}
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-              </form>
-              
-              <div className="mt-6 text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLogin(!isLogin);
-                    setErrors({});
-                  }}
-                  className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                >
-                  {isLogin
-                    ? "Don't have an account? Sign up"
-                    : 'Already have an account? Sign in'}
-                </button>
-              </div>
-            </CardContent>
+                </CardContent>
+              </>
+            )}
+
+            {/* Signup View */}
+            {view === 'signup' && (
+              <>
+                <CardHeader className="space-y-1 pb-4">
+                  <CardTitle className="text-xl text-center">Create account</CardTitle>
+                  <CardDescription className="text-center">
+                    Get started with JB-Manager
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName">Full Name</Label>
+                      <Input
+                        id="fullName"
+                        type="text"
+                        placeholder="John Doe"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        disabled={isSubmitting}
+                        className="h-12 rounded-xl"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (errors.email) setErrors({ ...errors, email: undefined });
+                        }}
+                        disabled={isSubmitting}
+                        className={`h-12 rounded-xl ${errors.email ? 'border-destructive' : ''}`}
+                      />
+                      {errors.email && (
+                        <p className="text-sm text-destructive">{errors.email}</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (errors.password) setErrors({ ...errors, password: undefined });
+                          }}
+                          disabled={isSubmitting}
+                          className={`h-12 rounded-xl ${errors.password ? 'border-destructive pr-10' : 'pr-10'}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {errors.password && (
+                        <p className="text-sm text-destructive">{errors.password}</p>
+                      )}
+                    </div>
+                    
+                    <Button
+                      type="submit"
+                      className="w-full h-12 rounded-xl text-base font-medium"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        'Creating account...'
+                      ) : (
+                        <>
+                          Create Account
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                  
+                  <div className="mt-6 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setView('login');
+                        resetForm();
+                      }}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Already have an account? Sign in
+                    </button>
+                  </div>
+                </CardContent>
+              </>
+            )}
+
+            {/* Forgot Password View */}
+            {view === 'forgot-password' && (
+              <>
+                <CardHeader className="space-y-1 pb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setView('login');
+                      resetForm();
+                    }}
+                    className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to login
+                  </button>
+                  <CardTitle className="text-xl">Reset password</CardTitle>
+                  <CardDescription>
+                    Enter your email and we&apos;ll send you a link to reset your password
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (errors.email) setErrors({ ...errors, email: undefined });
+                        }}
+                        disabled={isSubmitting}
+                        className={`h-12 rounded-xl ${errors.email ? 'border-destructive' : ''}`}
+                      />
+                      {errors.email && (
+                        <p className="text-sm text-destructive">{errors.email}</p>
+                      )}
+                    </div>
+                    
+                    <Button
+                      type="submit"
+                      className="w-full h-12 rounded-xl text-base font-medium"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        'Sending...'
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4 mr-2" />
+                          Send Reset Link
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+              </>
+            )}
+
+            {/* Reset Email Sent View */}
+            {view === 'reset-sent' && (
+              <>
+                <CardHeader className="space-y-1 pb-4">
+                  <div className="w-14 h-14 rounded-2xl bg-success/10 mx-auto mb-4 flex items-center justify-center">
+                    <Mail className="w-7 h-7 text-success" />
+                  </div>
+                  <CardTitle className="text-xl text-center">Check your email</CardTitle>
+                  <CardDescription className="text-center">
+                    We sent a password reset link to <span className="font-medium text-foreground">{email}</span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Click the link in the email to reset your password. If you don&apos;t see it, check your spam folder.
+                    </p>
+                    
+                    <Button
+                      variant="outline"
+                      className="w-full h-12 rounded-xl"
+                      onClick={() => {
+                        setView('login');
+                        resetForm();
+                      }}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to login
+                    </Button>
+                  </div>
+                </CardContent>
+              </>
+            )}
           </Card>
         </div>
       </div>
