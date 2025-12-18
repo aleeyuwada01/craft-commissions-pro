@@ -307,7 +307,7 @@ export default function EmployeeManagement() {
     }
   };
 
-  const handleMarkPaid = async (transactionIds: string[]) => {
+  const handleMarkPaid = async (transactionIds: string[], employeeId: string, employeeName: string) => {
     const { error } = await supabase
       .from('transactions')
       .update({ is_commission_paid: true, paid_at: new Date().toISOString() })
@@ -316,6 +316,13 @@ export default function EmployeeManagement() {
     if (error) {
       toast.error('Failed to mark as paid');
     } else {
+      // Log commission paid activity
+      await logActivity({
+        employeeId,
+        action: 'commission_paid',
+        details: `${transactionIds.length} commission(s) marked as paid`,
+      });
+      
       toast.success('Commissions marked as paid');
       fetchData();
     }
@@ -770,7 +777,7 @@ export default function EmployeeManagement() {
                         const unpaidIds = transactions
                           .filter((t) => t.employee_id === emp.id && !t.is_commission_paid)
                           .map((t) => t.id);
-                        handleMarkPaid(unpaidIds);
+                        handleMarkPaid(unpaidIds, emp.id, emp.name);
                       }}
                     >
                       <Check className="w-4 h-4 mr-2" />
