@@ -16,6 +16,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -24,7 +31,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Check, Pencil, Trash2, Eye, EyeOff, UserCheck } from 'lucide-react';
+import { ArrowLeft, Plus, Check, Pencil, Trash2, Eye, EyeOff, UserCheck, Percent, Banknote } from 'lucide-react';
 import { z } from 'zod';
 
 interface Employee {
@@ -33,6 +40,8 @@ interface Employee {
   email: string | null;
   phone: string | null;
   commission_percentage: number;
+  commission_type: string;
+  fixed_commission: number;
   is_active: boolean;
   user_id: string | null;
 }
@@ -66,7 +75,9 @@ export default function EmployeeManagement() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [createAccount, setCreateAccount] = useState(true);
+  const [commissionType, setCommissionType] = useState<'percentage' | 'fixed'>('percentage');
   const [commissionRate, setCommissionRate] = useState('10');
+  const [fixedCommission, setFixedCommission] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
@@ -118,7 +129,9 @@ export default function EmployeeManagement() {
     setPhone('');
     setPassword('');
     setCreateAccount(true);
+    setCommissionType('percentage');
     setCommissionRate('10');
+    setFixedCommission('');
     setEditingEmployee(null);
     setErrors({});
   };
@@ -129,7 +142,9 @@ export default function EmployeeManagement() {
       setName(employee.name);
       setEmail(employee.email || '');
       setPhone(employee.phone || '');
+      setCommissionType(employee.commission_type as 'percentage' | 'fixed');
       setCommissionRate(employee.commission_percentage.toString());
+      setFixedCommission(employee.fixed_commission?.toString() || '');
       setCreateAccount(false);
       setPassword('');
     } else {
@@ -171,14 +186,15 @@ export default function EmployeeManagement() {
 
     try {
       if (editingEmployee) {
-        // Update existing employee
         const { error } = await supabase
           .from('employees')
           .update({
             name,
             email: email || null,
             phone: phone || null,
-            commission_percentage: parseFloat(commissionRate),
+            commission_type: commissionType,
+            commission_percentage: parseFloat(commissionRate) || 0,
+            fixed_commission: parseFloat(fixedCommission) || 0,
           })
           .eq('id', editingEmployee.id);
 
@@ -187,7 +203,6 @@ export default function EmployeeManagement() {
       } else {
         let userId: string | null = null;
 
-        // Create auth account if requested
         if (createAccount && email && password) {
           const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
@@ -203,7 +218,7 @@ export default function EmployeeManagement() {
 
           if (authError) {
             if (authError.message.includes('already registered')) {
-              toast.error('This email is already registered. Please use a different email.');
+              toast.error('This email is already registered.');
             } else {
               toast.error('Failed to create account: ' + authError.message);
             }
@@ -214,13 +229,14 @@ export default function EmployeeManagement() {
           userId = authData.user?.id || null;
         }
 
-        // Create employee record
         const { error } = await supabase.from('employees').insert({
           business_id: id,
           name,
           email: email || null,
           phone: phone || null,
-          commission_percentage: parseFloat(commissionRate),
+          commission_type: commissionType,
+          commission_percentage: parseFloat(commissionRate) || 0,
+          fixed_commission: parseFloat(fixedCommission) || 0,
           user_id: userId,
         });
 
@@ -228,7 +244,7 @@ export default function EmployeeManagement() {
         
         toast.success(
           createAccount 
-            ? `Employee added! They can login with email: ${email}` 
+            ? `Employee added! Login: ${email}` 
             : 'Employee added successfully'
         );
       }
@@ -284,6 +300,13 @@ export default function EmployeeManagement() {
     return { totalSales, totalCommission, unpaidCommission, transactionCount: empTransactions.length };
   };
 
+  const getCommissionDisplay = (emp: Employee) => {
+    if (emp.commission_type === 'fixed') {
+      return `${formatCurrency(emp.fixed_commission)} per sale`;
+    }
+    return `${emp.commission_percentage}%`;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -295,34 +318,33 @@ export default function EmployeeManagement() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <Link to={`/business/${id}`}>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="rounded-xl shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Employees</h1>
-            <p className="text-muted-foreground">{business?.name}</p>
+            <h1 className="text-xl lg:text-2xl font-bold text-foreground">Employees</h1>
+            <p className="text-sm text-muted-foreground">{business?.name}</p>
           </div>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => handleOpenDialog()}>
+            <Button onClick={() => handleOpenDialog()} className="rounded-xl">
               <Plus className="w-4 h-4 mr-2" />
-              Add Employee
+              <span className="hidden sm:inline">Add Employee</span>
+              <span className="sm:hidden">Add</span>
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
+                {editingEmployee ? 'Edit Employee' : 'Add Employee'}
               </DialogTitle>
               <DialogDescription>
-                {editingEmployee
-                  ? 'Update employee details'
-                  : 'Enter employee details and create their login account'}
+                {editingEmployee ? 'Update details' : 'Enter employee details'}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -332,6 +354,7 @@ export default function EmployeeManagement() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
+                  className="h-12 rounded-xl"
                 />
               </div>
               
@@ -345,7 +368,7 @@ export default function EmployeeManagement() {
                     if (errors.email) setErrors({ ...errors, email: undefined });
                   }}
                   placeholder="employee@example.com"
-                  className={errors.email ? 'border-destructive' : ''}
+                  className={`h-12 rounded-xl ${errors.email ? 'border-destructive' : ''}`}
                 />
                 {errors.email && (
                   <p className="text-sm text-destructive">{errors.email}</p>
@@ -353,11 +376,11 @@ export default function EmployeeManagement() {
               </div>
 
               {!editingEmployee && (
-                <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-secondary rounded-xl">
                   <div>
-                    <Label className="text-sm font-medium">Create Login Account</Label>
+                    <Label className="text-sm font-medium">Create Login</Label>
                     <p className="text-xs text-muted-foreground">
-                      Allow employee to sign in and view their commissions
+                      Employee can sign in to view commissions
                     </p>
                   </div>
                   <Switch
@@ -379,12 +402,12 @@ export default function EmployeeManagement() {
                         if (errors.password) setErrors({ ...errors, password: undefined });
                       }}
                       placeholder="Min 6 characters"
-                      className={errors.password ? 'border-destructive pr-10' : 'pr-10'}
+                      className={`h-12 rounded-xl ${errors.password ? 'border-destructive pr-10' : 'pr-10'}`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -401,22 +424,72 @@ export default function EmployeeManagement() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+234 xxx xxx xxxx"
+                  className="h-12 rounded-xl"
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label>Commission Rate (%)</Label>
-                <Input
-                  type="number"
-                  value={commissionRate}
-                  onChange={(e) => setCommissionRate(e.target.value)}
-                  min="0"
-                  max="100"
-                  step="0.5"
-                />
+
+              {/* Commission Type Selection */}
+              <div className="space-y-3">
+                <Label>Commission Type</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCommissionType('percentage')}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      commissionType === 'percentage'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <Percent className={`w-5 h-5 mx-auto mb-2 ${commissionType === 'percentage' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <p className="text-sm font-medium">Percentage</p>
+                    <p className="text-xs text-muted-foreground">% of sale</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCommissionType('fixed')}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      commissionType === 'fixed'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <Banknote className={`w-5 h-5 mx-auto mb-2 ${commissionType === 'fixed' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <p className="text-sm font-medium">Fixed</p>
+                    <p className="text-xs text-muted-foreground">Per sale</p>
+                  </button>
+                </div>
               </div>
               
-              <Button className="w-full" onClick={handleSave} disabled={isSaving}>
+              {commissionType === 'percentage' ? (
+                <div className="space-y-2">
+                  <Label>Commission Rate (%)</Label>
+                  <Input
+                    type="number"
+                    value={commissionRate}
+                    onChange={(e) => setCommissionRate(e.target.value)}
+                    placeholder="10"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Fixed Commission (₦)</Label>
+                  <Input
+                    type="number"
+                    value={fixedCommission}
+                    onChange={(e) => setFixedCommission(e.target.value)}
+                    placeholder="5000"
+                    min="0"
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+              )}
+              
+              <Button className="w-full h-12 rounded-xl" onClick={handleSave} disabled={isSaving}>
                 {isSaving ? 'Saving...' : editingEmployee ? 'Update' : 'Add Employee'}
               </Button>
             </div>
@@ -426,38 +499,46 @@ export default function EmployeeManagement() {
 
       {/* Employees Grid */}
       {employees.length === 0 ? (
-        <Card>
+        <Card className="border-dashed">
           <CardContent className="py-12 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-secondary mx-auto mb-4 flex items-center justify-center">
+              <Plus className="w-8 h-8 text-muted-foreground" />
+            </div>
             <p className="text-muted-foreground mb-4">No employees yet</p>
-            <Button onClick={() => handleOpenDialog()}>
+            <Button onClick={() => handleOpenDialog()} className="rounded-xl">
               <Plus className="w-4 h-4 mr-2" />
               Add Your First Employee
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {employees.map((emp) => {
             const stats = getEmployeeStats(emp.id);
             return (
               <Card key={emp.id} className="stat-card">
-                <CardContent className="p-6">
+                <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center relative">
-                        <span className="text-lg font-semibold text-primary">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center relative">
+                        <span className="text-lg font-bold text-primary">
                           {emp.name.charAt(0)}
                         </span>
                         {emp.user_id && (
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-success rounded-full flex items-center justify-center">
-                            <UserCheck className="w-3 h-3 text-success-foreground" />
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-lg flex items-center justify-center">
+                            <UserCheck className="w-3 h-3 text-primary-foreground" />
                           </div>
                         )}
                       </div>
                       <div>
                         <h3 className="font-semibold text-foreground">{emp.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {emp.commission_percentage}% commission
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          {emp.commission_type === 'fixed' ? (
+                            <Banknote className="w-3 h-3" />
+                          ) : (
+                            <Percent className="w-3 h-3" />
+                          )}
+                          {getCommissionDisplay(emp)}
                         </p>
                       </div>
                     </div>
@@ -466,6 +547,7 @@ export default function EmployeeManagement() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleOpenDialog(emp)}
+                        className="rounded-xl"
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -473,40 +555,37 @@ export default function EmployeeManagement() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(emp.id)}
-                        className="text-destructive hover:text-destructive"
+                        className="rounded-xl text-destructive hover:text-destructive"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
-                  {emp.email && (
-                    <p className="text-xs text-muted-foreground mb-3 truncate">{emp.email}</p>
-                  )}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Total Sales</p>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="p-3 rounded-xl bg-secondary/50">
+                      <p className="text-muted-foreground text-xs">Total Sales</p>
                       <p className="font-semibold">{formatCurrency(stats.totalSales)}</p>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">Total Commission</p>
-                      <p className="font-semibold">{formatCurrency(stats.totalCommission)}</p>
+                    <div className="p-3 rounded-xl bg-secondary/50">
+                      <p className="text-muted-foreground text-xs">Earned</p>
+                      <p className="font-semibold text-primary">{formatCurrency(stats.totalCommission)}</p>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">Transactions</p>
+                    <div className="p-3 rounded-xl bg-secondary/50">
+                      <p className="text-muted-foreground text-xs">Transactions</p>
                       <p className="font-semibold">{stats.transactionCount}</p>
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">Unpaid</p>
-                      <p className="font-semibold text-warning">
-                        {formatCurrency(stats.unpaidCommission)}
-                      </p>
+                    <div className="p-3 rounded-xl bg-warning/10">
+                      <p className="text-muted-foreground text-xs">Unpaid</p>
+                      <p className="font-semibold text-warning">{formatCurrency(stats.unpaidCommission)}</p>
                     </div>
                   </div>
+                  
                   {stats.unpaidCommission > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full mt-4"
+                      className="w-full mt-4 rounded-xl"
                       onClick={() => {
                         const unpaidIds = transactions
                           .filter((t) => t.employee_id === emp.id && !t.is_commission_paid)
@@ -529,52 +608,50 @@ export default function EmployeeManagement() {
       {transactions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Commission Ledger</CardTitle>
+            <CardTitle className="text-lg">Commission Ledger</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead className="text-right">Total Sale</TableHead>
-                  <TableHead className="text-right">Commission</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.slice(0, 20).map((txn) => {
-                  const employee = employees.find((e) => e.id === txn.employee_id);
-                  return (
-                    <TableRow key={txn.id}>
-                      <TableCell>
-                        {new Date(txn.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>{employee?.name || 'Unknown'}</TableCell>
-                      <TableCell>{txn.services?.name || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(Number(txn.total_amount))}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(Number(txn.commission_amount))}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {txn.is_commission_paid ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-success/10 text-success">
-                            Paid
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-warning/10 text-warning">
-                            Due
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Employee</TableHead>
+                    <TableHead className="hidden sm:table-cell">Service</TableHead>
+                    <TableHead className="text-right">Sale</TableHead>
+                    <TableHead className="text-right">Commission</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.slice(0, 20).map((txn) => {
+                    const employee = employees.find((e) => e.id === txn.employee_id);
+                    return (
+                      <TableRow key={txn.id}>
+                        <TableCell className="text-sm">
+                          {new Date(txn.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                        </TableCell>
+                        <TableCell className="font-medium">{employee?.name || '-'}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground">{txn.services?.name || '-'}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(Number(txn.total_amount))}</TableCell>
+                        <TableCell className="text-right font-medium text-primary">{formatCurrency(Number(txn.commission_amount))}</TableCell>
+                        <TableCell className="text-center">
+                          {txn.is_commission_paid ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-primary/10 text-primary font-medium">
+                              Paid
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-warning/10 text-warning font-medium">
+                              Due
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}

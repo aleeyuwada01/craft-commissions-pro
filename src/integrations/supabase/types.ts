@@ -51,8 +51,10 @@ export type Database = {
         Row: {
           business_id: string
           commission_percentage: number
+          commission_type: string
           created_at: string
           email: string | null
+          fixed_commission: number | null
           id: string
           is_active: boolean
           name: string
@@ -63,8 +65,10 @@ export type Database = {
         Insert: {
           business_id: string
           commission_percentage?: number
+          commission_type?: string
           created_at?: string
           email?: string | null
+          fixed_commission?: number | null
           id?: string
           is_active?: boolean
           name: string
@@ -75,8 +79,10 @@ export type Database = {
         Update: {
           business_id?: string
           commission_percentage?: number
+          commission_type?: string
           created_at?: string
           email?: string | null
+          fixed_commission?: number | null
           id?: string
           is_active?: boolean
           name?: string
