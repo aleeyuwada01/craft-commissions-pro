@@ -203,7 +203,29 @@ export default function EmployeeManagement() {
       } else {
         let userId: string | null = null;
 
+        // First, insert the employee WITHOUT the user_id
+        const { data: employeeData, error: employeeError } = await supabase
+          .from('employees')
+          .insert({
+            business_id: id,
+            name,
+            email: email || null,
+            phone: phone || null,
+            commission_type: commissionType,
+            commission_percentage: parseFloat(commissionRate) || 0,
+            fixed_commission: parseFloat(fixedCommission) || 0,
+            user_id: null,
+          })
+          .select()
+          .single();
+
+        if (employeeError) throw employeeError;
+
+        // Then create the account if requested
         if (createAccount && email && password) {
+          // Store current session before signUp
+          const { data: currentSession } = await supabase.auth.getSession();
+          
           const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
@@ -216,37 +238,34 @@ export default function EmployeeManagement() {
             },
           });
 
-          if (authError) {
-            if (authError.message.includes('already registered')) {
-              toast.error('This email is already registered.');
-            } else {
-              toast.error('Failed to create account: ' + authError.message);
-            }
-            setIsSaving(false);
-            return;
+          // Restore the admin session immediately
+          if (currentSession.session) {
+            await supabase.auth.setSession(currentSession.session);
           }
 
-          userId = authData.user?.id || null;
+          if (authError) {
+            // Employee was created, but account creation failed - let user know
+            if (authError.message.includes('already registered')) {
+              toast.error('Employee added, but email is already registered. They can use existing login.');
+            } else {
+              toast.error('Employee added, but account creation failed: ' + authError.message);
+            }
+          } else {
+            userId = authData.user?.id || null;
+            
+            // Update the employee with the user_id
+            if (userId) {
+              await supabase
+                .from('employees')
+                .update({ user_id: userId })
+                .eq('id', employeeData.id);
+            }
+            
+            toast.success(`Employee added! Login: ${email}`);
+          }
+        } else {
+          toast.success('Employee added successfully');
         }
-
-        const { error } = await supabase.from('employees').insert({
-          business_id: id,
-          name,
-          email: email || null,
-          phone: phone || null,
-          commission_type: commissionType,
-          commission_percentage: parseFloat(commissionRate) || 0,
-          fixed_commission: parseFloat(fixedCommission) || 0,
-          user_id: userId,
-        });
-
-        if (error) throw error;
-        
-        toast.success(
-          createAccount 
-            ? `Employee added! Login: ${email}` 
-            : 'Employee added successfully'
-        );
       }
 
       setDialogOpen(false);
