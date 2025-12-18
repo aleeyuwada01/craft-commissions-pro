@@ -28,6 +28,8 @@ import {
   Wallet,
   Moon,
   Sun,
+  Users,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -110,24 +112,52 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               const Icon = businessIcons[unit.type] || Building2;
               const active = isBusinessActive(unit.id);
               return (
-                <Link
-                  key={unit.id}
-                  to={`/business/${unit.id}`}
-                  onClick={() => setSheetOpen(false)}
-                  className={cn('sidebar-item group', active && 'sidebar-item-active')}
-                >
-                  <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: active ? unit.color : `${unit.color}20` }}
+                <div key={unit.id}>
+                  <Link
+                    to={`/business/${unit.id}`}
+                    onClick={() => setSheetOpen(false)}
+                    className={cn('sidebar-item group', active && 'sidebar-item-active')}
                   >
-                    <Icon className="w-4 h-4" style={{ color: active ? '#fff' : unit.color }} />
-                  </div>
-                  <span className="flex-1 truncate">{unit.name}</span>
-                  <ChevronRight className={cn(
-                    "w-4 h-4 transition-opacity",
-                    active ? "opacity-100" : "opacity-0 group-hover:opacity-50"
-                  )} />
-                </Link>
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: active ? unit.color : `${unit.color}20` }}
+                    >
+                      <Icon className="w-4 h-4" style={{ color: active ? '#fff' : unit.color }} />
+                    </div>
+                    <span className="flex-1 truncate">{unit.name}</span>
+                    <ChevronRight className={cn(
+                      "w-4 h-4 transition-transform",
+                      active ? "rotate-90" : "rotate-0 opacity-0 group-hover:opacity-50"
+                    )} />
+                  </Link>
+                  {/* Sub-navigation for active business */}
+                  {active && (
+                    <div className="ml-6 pl-4 border-l border-sidebar-border space-y-1 mt-1 mb-2">
+                      <Link
+                        to={`/business/${unit.id}/employees`}
+                        onClick={() => setSheetOpen(false)}
+                        className={cn(
+                          'sidebar-item text-sm py-2',
+                          location.pathname === `/business/${unit.id}/employees` && 'sidebar-item-active'
+                        )}
+                      >
+                        <Users className="w-4 h-4" />
+                        <span>Employees</span>
+                      </Link>
+                      <Link
+                        to={`/business/${unit.id}/settings`}
+                        onClick={() => setSheetOpen(false)}
+                        className={cn(
+                          'sidebar-item text-sm py-2',
+                          location.pathname === `/business/${unit.id}/settings` && 'sidebar-item-active'
+                        )}
+                      >
+                        <Settings className="w-4 h-4" />
+                        <span>Settings</span>
+                      </Link>
+                    </div>
+                  )}
+                </div>
               );
             })}
 
