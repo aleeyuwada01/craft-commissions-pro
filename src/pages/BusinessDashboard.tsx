@@ -30,6 +30,7 @@ import {
   Plus,
   ArrowLeft,
   Calendar,
+  Zap,
 } from 'lucide-react';
 
 interface Employee {
@@ -63,6 +64,12 @@ interface BusinessStats {
   transactionCount: number;
 }
 
+interface TodayStats {
+  revenue: number;
+  transactions: number;
+  commissions: number;
+}
+
 type TimeFilter = 'today' | 'week' | 'month' | 'all';
 
 export default function BusinessDashboard() {
@@ -76,6 +83,11 @@ export default function BusinessDashboard() {
     totalCommissions: 0,
     houseEarnings: 0,
     transactionCount: 0,
+  });
+  const [todayStats, setTodayStats] = useState<TodayStats>({
+    revenue: 0,
+    transactions: 0,
+    commissions: 0,
   });
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('month');
   const [loading, setLoading] = useState(true);
@@ -177,6 +189,24 @@ export default function BusinessDashboard() {
         totalCommissions,
         houseEarnings,
         transactionCount: transactionsData.length,
+      });
+    }
+
+    // Fetch today's stats separately
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const { data: todayData } = await supabase
+      .from('transactions')
+      .select('total_amount, commission_amount')
+      .eq('business_id', id)
+      .gte('created_at', todayStart.toISOString());
+
+    if (todayData) {
+      setTodayStats({
+        revenue: todayData.reduce((sum, t) => sum + Number(t.total_amount), 0),
+        transactions: todayData.length,
+        commissions: todayData.reduce((sum, t) => sum + Number(t.commission_amount), 0),
       });
     }
 
@@ -282,6 +312,34 @@ export default function BusinessDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Today's Quick Stats */}
+      <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Today's Summary</h3>
+              <p className="text-xs text-muted-foreground">Real-time overview</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-3 rounded-xl bg-background/50">
+              <p className="text-2xl sm:text-3xl font-bold text-primary">{todayStats.transactions}</p>
+              <p className="text-xs text-muted-foreground">Sales</p>
+            </div>
+            <div className="text-center p-3 rounded-xl bg-background/50">
+              <p className="text-lg sm:text-xl font-bold text-foreground">{formatCurrency(todayStats.revenue)}</p>
+              <p className="text-xs text-muted-foreground">Revenue</p>
+            </div>
+            <div className="text-center p-3 rounded-xl bg-background/50">
+              <p className="text-lg sm:text-xl font-bold text-warning">{formatCurrency(todayStats.commissions)}</p>
+              <p className="text-xs text-muted-foreground">Commissions</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
