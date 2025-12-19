@@ -45,7 +45,14 @@ function SmartHome() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!user || loading) return;
+    // If still loading auth, wait
+    if (loading) return;
+
+    // If no user, redirect will happen below - no need to check roles
+    if (!user) {
+      setChecking(false);
+      return;
+    }
 
     const checkUserRole = async () => {
       // Check if user has any business units (admin)
@@ -102,9 +109,12 @@ function SmartHome() {
 }
 
 function AppRoutes() {
+  console.log('AppRoutes: Rendering...');
   const { user, loading } = useAuth();
+  console.log('AppRoutes: useAuth returned - loading:', loading, 'user:', !!user);
 
   if (loading) {
+    console.log('AppRoutes: Showing loading state');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -189,17 +199,20 @@ function AppRoutes() {
   );
 }
 
-const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
-);
+const App = () => {
+  console.log('App: Rendering...');
+  return (
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+};
 
 export default App;

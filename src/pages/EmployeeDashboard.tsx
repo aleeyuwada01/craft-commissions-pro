@@ -6,6 +6,7 @@ import { logActivity } from '@/hooks/useActivityLog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SaleRecordDialog } from '@/components/SaleRecordDialog';
 import {
   Table,
   TableBody,
@@ -36,14 +37,16 @@ import {
   Trophy,
   Target,
   Sparkles,
+  Plus,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths, eachWeekOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 
 interface EmployeeData {
   id: string;
   name: string;
+  business_id: string;
   commission_percentage: number;
-  commission_type: string;
+  commission_type: 'percentage' | 'fixed';
   fixed_commission: number;
   business_units: { name: string } | null;
 }
@@ -64,6 +67,7 @@ export default function EmployeeDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const hasLoggedLogin = useRef(false);
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -75,6 +79,7 @@ export default function EmployeeDashboard() {
         .select(`
           id,
           name,
+          business_id,
           commission_percentage,
           commission_type,
           fixed_commission,
@@ -84,7 +89,10 @@ export default function EmployeeDashboard() {
         .maybeSingle();
 
       if (employeeData) {
-        setEmployee(employeeData);
+        setEmployee({
+          ...employeeData,
+          commission_type: employeeData.commission_type as 'percentage' | 'fixed',
+        });
 
         // Log login activity (only once per session)
         if (!hasLoggedLogin.current) {
@@ -246,11 +254,28 @@ export default function EmployeeDashboard() {
               <p className="text-xs text-muted-foreground">{employee.business_units?.name}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={signOut}>
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setSaleDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-1" />
+              Record Sale
+            </Button>
+            <Button variant="outline" size="sm" onClick={signOut}>
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
+
+      {/* Sale Record Dialog */}
+      <SaleRecordDialog
+        open={saleDialogOpen}
+        onOpenChange={setSaleDialogOpen}
+        employeeId={employee.id}
+        businessId={employee.business_id}
+        commissionType={employee.commission_type}
+        commissionPercentage={employee.commission_percentage}
+        fixedCommission={employee.fixed_commission}
+      />
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* Welcome */}

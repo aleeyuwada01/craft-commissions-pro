@@ -19,7 +19,9 @@ import {
   Upload,
   Database,
   AlertTriangle,
+  Lock,
 } from 'lucide-react';
+import { usePrivateAccess } from '@/hooks/usePrivateAccess';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +61,26 @@ export default function GlobalSettings() {
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [pendingImportData, setPendingImportData] = useState<BackupData | null>(null);
+
+  // Private Access hook
+  const { 
+    isPrivateAccessEnabled, 
+    isLoading: privateAccessLoading, 
+    setPrivateAccess 
+  } = usePrivateAccess();
+
+  const handlePrivateAccessToggle = async (enabled: boolean) => {
+    try {
+      await setPrivateAccess(enabled);
+      toast.success(
+        enabled 
+          ? 'Private access enabled - new registrations are now disabled' 
+          : 'Private access disabled - new registrations are now allowed'
+      );
+    } catch (error) {
+      toast.error('Failed to update private access setting');
+    }
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -385,6 +407,36 @@ export default function GlobalSettings() {
           <Button onClick={handleChangePassword} disabled={changingPassword || !newPassword || !confirmPassword} variant="outline">
             {changingPassword ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Changing...</> : <><Key className="w-4 h-4 mr-2" />Change Password</>}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+              <Lock className="w-5 h-5 text-red-500" />
+            </div>
+            <div>
+              <CardTitle>Access Control</CardTitle>
+              <CardDescription>Manage user registration settings</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Private Access</Label>
+              <p className="text-sm text-muted-foreground">
+                When enabled, new user registrations are disabled. Only existing users can sign in.
+              </p>
+            </div>
+            <Switch 
+              checked={isPrivateAccessEnabled} 
+              onCheckedChange={handlePrivateAccessToggle}
+              disabled={privateAccessLoading}
+              data-testid="private-access-toggle"
+            />
+          </div>
         </CardContent>
       </Card>
 

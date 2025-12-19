@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { usePrivateAccess } from '@/hooks/usePrivateAccess';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ export default function Auth() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   
   const { signIn, signUp, user, loading } = useAuth();
+  const { isPrivateAccessEnabled, isLoading: isPrivateAccessLoading } = usePrivateAccess();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,6 +34,13 @@ export default function Auth() {
       navigate('/');
     }
   }, [user, loading, navigate]);
+
+  // Redirect to login view if private access is enabled and user tries to access signup
+  useEffect(() => {
+    if (!isPrivateAccessLoading && isPrivateAccessEnabled && view === 'signup') {
+      setView('login');
+    }
+  }, [isPrivateAccessEnabled, isPrivateAccessLoading, view]);
 
   const validateForm = (checkPassword = true) => {
     const newErrors: { email?: string; password?: string } = {};
@@ -124,7 +133,8 @@ export default function Auth() {
     setErrors({});
   };
 
-  if (loading) {
+  // Show loading state while fetching auth or private access status
+  if (loading || isPrivateAccessLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -234,18 +244,21 @@ export default function Auth() {
                     </Button>
                   </form>
                   
-                  <div className="mt-6 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setView('signup');
-                        resetForm();
-                      }}
-                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      Don&apos;t have an account? Sign up
-                    </button>
-                  </div>
+                  {/* Hide signup link when private access is enabled */}
+                  {!isPrivateAccessEnabled && (
+                    <div className="mt-6 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setView('signup');
+                          resetForm();
+                        }}
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        Don&apos;t have an account? Sign up
+                      </button>
+                    </div>
+                  )}
                 </CardContent>
               </>
             )}
