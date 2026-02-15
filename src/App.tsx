@@ -16,6 +16,12 @@ import EmployeeManagement from "@/pages/EmployeeManagement";
 import BusinessSettings from "@/pages/Settings";
 import GlobalSettings from "@/pages/GlobalSettings";
 import Reports from "@/pages/Reports";
+import POSSystem from "@/pages/POSSystem";
+import Customers from "@/pages/Customers";
+import SalesHistory from "@/pages/SalesHistory";
+import EmployeeContracts from "@/pages/EmployeeContracts";
+import ViewContract from "@/pages/ViewContract";
+import NewContract from "@/pages/NewContract";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -167,6 +173,54 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <BusinessSettings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/business/:id/pos"
+        element={
+          <ProtectedRoute>
+            <POSSystem />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/business/:id/customers"
+        element={
+          <ProtectedRoute>
+            <Customers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/business/:id/sales"
+        element={
+          <ProtectedRoute>
+            <SalesHistory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/business/:id/contracts"
+        element={
+          <ProtectedRoute>
+            <EmployeeContracts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/business/:id/contracts/new"
+        element={
+          <ProtectedRoute>
+            <NewContract />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/business/:id/contracts/:contractId"
+        element={
+          <ProtectedRoute>
+            <ViewContract />
           </ProtectedRoute>
         }
       />

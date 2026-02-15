@@ -33,6 +33,9 @@ import {
   Zap,
   Settings,
   Banknote,
+  ShoppingCart,
+  UserCircle,
+  FileText,
 } from 'lucide-react';
 
 interface Employee {
@@ -197,7 +200,7 @@ export default function BusinessDashboard() {
     // Fetch today's stats separately
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    
+
     const { data: todayData } = await supabase
       .from('transactions')
       .select('total_amount, commission_amount')
@@ -258,7 +261,7 @@ export default function BusinessDashboard() {
     if (!employee) return;
 
     const amount = parseFloat(saleAmount);
-    
+
     // Calculate commission based on type
     let commission: number;
     if (employee.commission_type === 'fixed') {
@@ -266,7 +269,7 @@ export default function BusinessDashboard() {
     } else {
       commission = amount * (employee.commission_percentage / 100);
     }
-    
+
     const houseAmount = amount - commission;
 
     setIsRecording(true);
@@ -364,6 +367,24 @@ export default function BusinessDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link to={`/business/${id}/pos`}>
+            <Button variant="outline" size="sm">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              POS
+            </Button>
+          </Link>
+          <Link to={`/business/${id}/customers`}>
+            <Button variant="outline" size="sm">
+              <UserCircle className="w-4 h-4 mr-2" />
+              Customers
+            </Button>
+          </Link>
+          <Link to={`/business/${id}/contracts`}>
+            <Button variant="outline" size="sm">
+              <FileText className="w-4 h-4 mr-2" />
+              Contracts
+            </Button>
+          </Link>
           <Link to={`/business/${id}/employees`}>
             <Button variant="outline" size="sm">
               <Users className="w-4 h-4 mr-2" />
@@ -463,7 +484,7 @@ export default function BusinessDashboard() {
                     {(() => {
                       const emp = employees.find((e) => e.id === selectedEmployee);
                       const amount = parseFloat(saleAmount) || 0;
-                      const commission = emp?.commission_type === 'fixed' 
+                      const commission = emp?.commission_type === 'fixed'
                         ? (emp?.fixed_commission || 0)
                         : amount * ((emp?.commission_percentage || 0) / 100);
                       const house = amount - commission;

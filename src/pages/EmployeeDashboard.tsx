@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/currency';
@@ -28,16 +29,17 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { 
-  Wallet, 
-  TrendingUp, 
-  Calendar, 
-  CheckCircle2, 
+import {
+  Wallet,
+  TrendingUp,
+  Calendar,
+  CheckCircle2,
   Clock,
   Trophy,
   Target,
   Sparkles,
   Plus,
+  ShoppingCart,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths, eachWeekOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 
@@ -255,6 +257,12 @@ export default function EmployeeDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link to={`/business/${employee.business_id}/pos`}>
+              <Button variant="outline" size="sm">
+                <ShoppingCart className="w-4 h-4 mr-1" />
+                POS
+              </Button>
+            </Link>
             <Button size="sm" onClick={() => setSaleDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-1" />
               Record Sale
@@ -283,7 +291,7 @@ export default function EmployeeDashboard() {
           <p className="text-muted-foreground text-sm">Welcome,</p>
           <h2 className="text-2xl font-bold text-foreground">{employee.name}</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Commission: {employee.commission_type === 'fixed' 
+            Commission: {employee.commission_type === 'fixed'
               ? formatCurrency(employee.fixed_commission) + ' per sale'
               : employee.commission_percentage + '%'}
           </p>
@@ -371,25 +379,25 @@ export default function EmployeeDashboard() {
                   <AreaChart data={weeklyData}>
                     <defs>
                       <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₦${(v/1000).toFixed(0)}k`} />
-                    <Tooltip 
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip
                       formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '0.5rem',
                       }}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="earnings" 
-                      stroke="hsl(var(--primary))" 
+                    <Area
+                      type="monotone"
+                      dataKey="earnings"
+                      stroke="hsl(var(--primary))"
                       fill="url(#colorEarnings)"
                       strokeWidth={2}
                     />
@@ -412,14 +420,14 @@ export default function EmployeeDashboard() {
                   <BarChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₦${(v/1000).toFixed(0)}k`} />
-                    <Tooltip 
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip
                       formatter={(value: number, name: string) => [
                         name === 'earnings' ? formatCurrency(value) : value,
                         name === 'earnings' ? 'Earnings' : 'Sales'
                       ]}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '0.5rem',
                       }}

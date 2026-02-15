@@ -10,6 +10,19 @@ export interface Service {
   description: string | null;
   created_at: string;
   updated_at: string;
+
+  // POS Fields
+  sku?: string | null;
+  barcode?: string | null;
+  category?: string | null;
+  cost_price?: number | null;
+  tax_rate?: number | null;
+  image_url?: string | null;
+
+  // Booking Fields
+  service_type?: string | null; // 'service' | 'product' | 'package'
+  duration_minutes?: number | null;
+  buffer_time?: number | null;
 }
 
 export interface UseServicesResult {
