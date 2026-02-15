@@ -6,6 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { SaleReceiptPDF } from '@/components/pos/SaleReceiptPDF';
 import { toast } from 'sonner';
 import {
     ArrowLeft,
@@ -17,8 +33,12 @@ import {
     CreditCard,
     Banknote,
     Smartphone,
+    Download,
+    CheckCircle,
+    UserCircle,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
+import { format } from 'date-fns';
 
 interface CartItem {
     service: Service;
@@ -37,13 +57,41 @@ interface Service {
     tax_rate?: number | null;
 }
 
+interface Customer {
+    id: string;
+    name: string | null;
+    phone: string | null;
+}
+
 export default function POSSystem() {
     const { id: businessId } = useParams<{ id: string }>();
     const { services, loading } = useServices(businessId);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [businessName, setBusinessName] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'paystack' | 'flutterwave'>('cash');
+    const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+    const [lastSaleData, setLastSaleData] = useState<any>(null);
+
+    useEffect(() => {
+        if (!businessId) return;
+        // Fetch customers
+        supabase
+            .from('customers')
+            .select('id, name, phone')
+            .eq('business_id', businessId)
+            .order('name')
+            .then(({ data }) => setCustomers(data || []));
+        // Fetch business name
+        supabase
+            .from('business_units')
+            .select('name')
+            .eq('id', businessId)
+            .single()
+            .then(({ data }) => setBusinessName(data?.name || 'Business'));
+    }, [businessId]);
 
     const filteredServices = services.filter(service =>
         service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -164,10 +212,29 @@ export default function POSSystem() {
 
             if (paymentError) throw paymentError;
 
+            // Generate receipt data
+            const receiptData = {
+                receiptNumber: `RCP-${sale.id.slice(0, 8).toUpperCase()}`,
+                date: format(new Date(), 'MMM d, yyyy h:mm a'),
+                businessName,
+                customerName: selectedCustomer?.name || 'Walk-in Customer',
+                items: cart.map(item => ({
+                    name: item.service.name,
+                    quantity: item.quantity,
+                    unitPrice: item.unit_price,
+                    total: item.unit_price * item.quantity,
+                })),
+                subtotal: calculateSubtotal(),
+                taxAmount: calculateTax(),
+                discountAmount: calculateDiscount(),
+                totalAmount: calculateTotal(),
+                paymentMethod,
+            };
+
+            setLastSaleData(receiptData);
+            setReceiptDialogOpen(true);
             toast.success('Sale completed successfully!');
             clearCart();
-
-            // TODO: Generate and print receipt
 
         } catch (error: any) {
             console.error('Checkout error:', error);
@@ -297,6 +364,39 @@ export default function POSSystem() {
                             </div>
 
                             {/* Summary */}
+                            {/* Customer Selection */}
+                            <div className="space-y-2">
+                                <p className="text-sm font-medium">Customer</p>
+                                <Select
+                                    value={selectedCustomer?.id || 'walk-in'}
+                                    onValueChange={(val) => {
+                                        if (val === 'walk-in') {
+                                            setSelectedCustomer(null);
+                                        } else {
+                                            const cust = customers.find(c => c.id === val);
+                                            setSelectedCustomer(cust || null);
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Walk-in Customer" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="walk-in">
+                                            <div className="flex items-center gap-2">
+                                                <UserCircle className="w-4 h-4" />
+                                                Walk-in Customer
+                                            </div>
+                                        </SelectItem>
+                                        {customers.map(c => (
+                                            <SelectItem key={c.id} value={c.id}>
+                                                {c.name || 'Anonymous'} {c.phone ? `(${c.phone})` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             {cart.length > 0 && (
                                 <>
                                     <div className="space-y-2 pt-4 border-t">
@@ -385,6 +485,63 @@ export default function POSSystem() {
                     </Card>
                 </div>
             </div>
+
+            {/* Receipt Dialog */}
+            <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-5 h-5" />
+                            Sale Completed!
+                        </DialogTitle>
+                    </DialogHeader>
+                    {lastSaleData && (
+                        <div className="space-y-4">
+                            <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg text-center">
+                                <p className="text-2xl font-bold text-green-600">
+                                    {formatCurrency(lastSaleData.totalAmount)}
+                                </p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    {lastSaleData.paymentMethod.toUpperCase()} Payment
+                                </p>
+                            </div>
+
+                            <div className="space-y-1 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Receipt:</span>
+                                    <span className="font-mono">{lastSaleData.receiptNumber}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Customer:</span>
+                                    <span>{lastSaleData.customerName}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Items:</span>
+                                    <span>{lastSaleData.items.length} item(s)</span>
+                                </div>
+                            </div>
+
+                            <PDFDownloadLink
+                                document={<SaleReceiptPDF data={lastSaleData} />}
+                                fileName={`receipt-${lastSaleData.receiptNumber}.pdf`}
+                                className="w-full"
+                            >
+                                {({ loading: pdfLoading }) => (
+                                    <Button className="w-full" disabled={pdfLoading}>
+                                        <Download className="w-4 h-4 mr-2" />
+                                        {pdfLoading ? 'Generating...' : 'Download Receipt'}
+                                    </Button>
+                                )}
+                            </PDFDownloadLink>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setReceiptDialogOpen(false)} className="w-full">
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
