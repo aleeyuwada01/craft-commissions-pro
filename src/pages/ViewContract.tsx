@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { TerminateContractButton } from '@/components/contracts/TerminateContractButton';
 
 interface Contract {
     id: string;
@@ -64,6 +65,8 @@ export default function ViewContract() {
     const [loading, setLoading] = useState(true);
     const [signDialogOpen, setSignDialogOpen] = useState(false);
     const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+    const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
+    const [terminationReason, setTerminationReason] = useState('');
     const [isEmployeeView, setIsEmployeeView] = useState(false);
 
     const signaturePadRef = useRef<SignatureCanvas>(null);
@@ -135,6 +138,33 @@ export default function ViewContract() {
             fetchContract();
         } catch (error: any) {
             toast.error('Failed to sign contract: ' + error.message);
+        }
+    };
+
+    const handleTerminateContract = async () => {
+        if (!terminationReason.trim()) {
+            toast.error('Please provide a termination reason');
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('employee_contracts')
+                .update({
+                    status: 'terminated',
+                    termination_reason: terminationReason,
+                    terminated_at: new Date().toISOString(),
+                })
+                .eq('id', contractId);
+
+            if (error) throw error;
+
+            toast.success('Contract terminated successfully');
+            setTerminateDialogOpen(false);
+            setTerminationReason('');
+            fetchContract();
+        } catch (error: any) {
+            toast.error('Failed to terminate contract: ' + error.message);
         }
     };
 
@@ -327,6 +357,16 @@ export default function ViewContract() {
                     </Button>
                 )}
 
+                {!isEmployeeView && contract.status !== 'terminated' && (
+                    <Button
+                        variant="destructive"
+                        onClick={() => setTerminateDialogOpen(true)}
+                    >
+                        <X className="w-4 h-4 mr-2" />
+                        Terminate Contract
+                    </Button>
+                )}
+
                 <Button variant="outline" onClick={() => setPdfPreviewOpen(true)}>
                     <Eye className="w-4 h-4 mr-2" />
                     Preview PDF
@@ -388,6 +428,38 @@ export default function ViewContract() {
                             <ContractPDF data={pdfData} />
                         </PDFViewer>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Termination Dialog */}
+            <Dialog open={terminateDialogOpen} onOpenChange={setTerminateDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Terminate Contract</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            Are you sure you want to terminate this contract? This action will mark the contract as terminated.
+                        </p>
+                        <div className="space-y-2">
+                            <Label>Termination Reason / Penalty Details *</Label>
+                            <Textarea
+                                value={terminationReason}
+                                onChange={(e) => setTerminationReason(e.target.value)}
+                                placeholder="Enter the reason for termination, any penalties, or breach details..."
+                                rows={5}
+                                required
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setTerminateDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleTerminateContract}>
+                            Terminate Contract
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

@@ -263,6 +263,12 @@ export default function EmployeeDashboard() {
                 POS
               </Button>
             </Link>
+            <Link to={`/business/${employee.business_id}/contracts`}>
+              <Button variant="outline" size="sm">
+                <FileText className="w-4 h-4 mr-1" />
+                Contracts
+              </Button>
+            </Link>
             <Button size="sm" onClick={() => setSaleDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-1" />
               Record Sale

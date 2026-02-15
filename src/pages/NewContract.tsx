@@ -75,7 +75,6 @@ By signing below, both parties acknowledge and agree to the terms and conditions
             .from('employees')
             .select('id, name')
             .eq('business_id', businessId)
-            .eq('is_active', true)
             .order('name');
 
         if (error) {
