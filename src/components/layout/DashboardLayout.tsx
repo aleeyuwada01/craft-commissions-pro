@@ -34,6 +34,7 @@ import {
   Receipt,
   UserCircle,
   AlertTriangle,
+  FileSignature,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -200,6 +201,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       >
                         <Users className="w-4 h-4" />
                         <span>Employees</span>
+                      </Link>
+                      <Link
+                        to={`/business/${unit.id}/contracts`}
+                        onClick={() => setSheetOpen(false)}
+                        className={cn(
+                          'sidebar-item text-sm py-2',
+                          location.pathname === `/business/${unit.id}/contracts` && 'sidebar-item-active'
+                        )}
+                      >
+                        <FileSignature className="w-4 h-4" />
+                        <span>Contracts</span>
                       </Link>
                       <Link
                         to={`/business/${unit.id}/settings`}
