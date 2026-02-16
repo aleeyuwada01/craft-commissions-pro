@@ -24,10 +24,13 @@ $$;
 -- Fix existing employees who were incorrectly assigned 'admin' role
 -- We only update users who are present in the employees table
 UPDATE public.user_roles
-SET role = 'employee'
+SET role = 'employee'::public.app_role
 WHERE user_id IN (
     SELECT user_id 
     FROM public.employees 
     WHERE user_id IS NOT NULL AND is_active = true
 ) 
-AND role = 'admin';
+AND role = 'admin'::public.app_role
+AND user_id NOT IN (
+    SELECT user_id FROM public.business_units
+);
