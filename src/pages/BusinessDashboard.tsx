@@ -62,6 +62,27 @@ interface Transaction {
   services: { name: string } | null;
 }
 
+interface SaleRecord {
+  id: string;
+  sale_number: string;
+  total_amount: number;
+  payment_method: string;
+  payment_status: string;
+  created_at: string;
+  customers: { name: string } | null;
+}
+
+interface DisplayTransaction {
+  id: string;
+  type: 'commission' | 'pos';
+  total_amount: number;
+  created_at: string;
+  label: string;
+  sublabel: string;
+  commission_amount?: number;
+  payment_status?: string;
+}
+
 interface BusinessStats {
   totalRevenue: number;
   totalCommissions: number;
@@ -83,6 +104,7 @@ export default function BusinessDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [displayTransactions, setDisplayTransactions] = useState<DisplayTransaction[]>([]);
   const [stats, setStats] = useState<BusinessStats>({
     totalRevenue: 0,
     totalCommissions: 0,
@@ -197,6 +219,63 @@ export default function BusinessDashboard() {
       });
     }
 
+    // Fetch POS sales
+    let salesQuery = supabase
+      .from('sales')
+      .select(`
+        id,
+        sale_number,
+        total_amount,
+        payment_method,
+        payment_status,
+        created_at,
+        customers(name)
+      `)
+      .eq('business_id', id)
+      .order('created_at', { ascending: false });
+
+    if (dateFilter) {
+      salesQuery = salesQuery.gte('created_at', dateFilter);
+    }
+
+    const { data: salesData } = await salesQuery;
+
+    // Merge transactions and sales into unified display list
+    const commissionItems: DisplayTransaction[] = (transactionsData || []).map(t => ({
+      id: t.id,
+      type: 'commission' as const,
+      total_amount: Number(t.total_amount),
+      created_at: t.created_at,
+      label: t.employees?.name || 'Unknown',
+      sublabel: t.services?.name || 'Service',
+      commission_amount: Number(t.commission_amount),
+    }));
+
+    const posItems: DisplayTransaction[] = (salesData || []).map(s => ({
+      id: s.id,
+      type: 'pos' as const,
+      total_amount: Number(s.total_amount),
+      created_at: s.created_at,
+      label: s.customers?.name || 'Walk-in Customer',
+      sublabel: `POS Sale #${s.sale_number}`,
+      payment_status: s.payment_status,
+    }));
+
+    const merged = [...commissionItems, ...posItems].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    setDisplayTransactions(merged);
+
+    // Update stats to include POS sales
+    const posSalesRevenue = (salesData || []).reduce(
+      (sum, s) => sum + Number(s.total_amount), 0
+    );
+    setStats(prev => ({
+      ...prev,
+      totalRevenue: prev.totalRevenue + posSalesRevenue,
+      transactionCount: prev.transactionCount + (salesData || []).length,
+    }));
+
     // Fetch today's stats separately
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -207,13 +286,20 @@ export default function BusinessDashboard() {
       .eq('business_id', id)
       .gte('created_at', todayStart.toISOString());
 
-    if (todayData) {
-      setTodayStats({
-        revenue: todayData.reduce((sum, t) => sum + Number(t.total_amount), 0),
-        transactions: todayData.length,
-        commissions: todayData.reduce((sum, t) => sum + Number(t.commission_amount), 0),
-      });
-    }
+    const { data: todaySalesData } = await supabase
+      .from('sales')
+      .select('total_amount')
+      .eq('business_id', id)
+      .gte('created_at', todayStart.toISOString());
+
+    const todayCommRevenue = (todayData || []).reduce((sum, t) => sum + Number(t.total_amount), 0);
+    const todaySalesRevenue = (todaySalesData || []).reduce((sum, s) => sum + Number(s.total_amount), 0);
+
+    setTodayStats({
+      revenue: todayCommRevenue + todaySalesRevenue,
+      transactions: (todayData || []).length + (todaySalesData || []).length,
+      commissions: (todayData || []).reduce((sum, t) => sum + Number(t.commission_amount), 0),
+    });
 
     setLoading(false);
   };
@@ -221,15 +307,27 @@ export default function BusinessDashboard() {
   useEffect(() => {
     fetchData();
 
-    // Set up realtime subscription
+    // Set up realtime subscriptions for both tables
     const channel = supabase
-      .channel(`business-${id}-transactions`)
+      .channel(`business-${id}-all-sales`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'transactions',
+          filter: `business_id=eq.${id}`,
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sales',
           filter: `business_id=eq.${id}`,
         },
         () => {
@@ -593,28 +691,43 @@ export default function BusinessDashboard() {
               <CardTitle>Recent Transactions</CardTitle>
             </CardHeader>
             <CardContent>
-              {transactions.length === 0 ? (
+              {displayTransactions.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">
                   No transactions yet. Record your first sale!
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {transactions.map((txn) => (
+                  {displayTransactions.map((txn) => (
                     <div
                       key={txn.id}
                       className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg"
                     >
                       <div>
-                        <p className="font-medium">{txn.employees?.name || 'Unknown'}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{txn.label}</p>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${txn.type === 'pos'
+                              ? 'bg-blue-500/10 text-blue-600'
+                              : 'bg-purple-500/10 text-purple-600'
+                            }`}>
+                            {txn.type === 'pos' ? 'POS' : 'Commission'}
+                          </span>
+                          {txn.payment_status && txn.payment_status !== 'completed' && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-600">
+                              {txn.payment_status}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
-                          {txn.services?.name} · {formatDate(txn.created_at)}
+                          {txn.sublabel} · {formatDate(txn.created_at)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">{formatCurrency(Number(txn.total_amount))}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Commission: {formatCurrency(Number(txn.commission_amount))}
-                        </p>
+                        <p className="font-semibold">{formatCurrency(txn.total_amount)}</p>
+                        {txn.commission_amount !== undefined && (
+                          <p className="text-sm text-muted-foreground">
+                            Commission: {formatCurrency(txn.commission_amount)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
