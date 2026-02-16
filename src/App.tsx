@@ -23,6 +23,7 @@ import EmployeeContracts from "@/pages/EmployeeContracts";
 import ViewContract from "@/pages/ViewContract";
 import NewContract from "@/pages/NewContract";
 import NotFound from "@/pages/NotFound";
+import Debtors from "@/pages/Debtors";
 
 const queryClient = new QueryClient();
 
@@ -197,6 +198,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SalesHistory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/business/:id/debtors"
+        element={
+          <ProtectedRoute>
+            <Debtors />
           </ProtectedRoute>
         }
       />

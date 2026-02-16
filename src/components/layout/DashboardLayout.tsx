@@ -30,6 +30,10 @@ import {
   Sun,
   Users,
   Settings,
+  ShoppingCart,
+  Receipt,
+  UserCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -143,6 +147,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {active && (
                     <div className="ml-6 pl-4 border-l border-sidebar-border space-y-1 mt-1 mb-2">
                       <Link
+                        to={`/business/${unit.id}/pos`}
+                        onClick={() => setSheetOpen(false)}
+                        className={cn(
+                          'sidebar-item text-sm py-2',
+                          location.pathname === `/business/${unit.id}/pos` && 'sidebar-item-active'
+                        )}
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        <span>POS</span>
+                      </Link>
+                      <Link
+                        to={`/business/${unit.id}/sales`}
+                        onClick={() => setSheetOpen(false)}
+                        className={cn(
+                          'sidebar-item text-sm py-2',
+                          location.pathname === `/business/${unit.id}/sales` && 'sidebar-item-active'
+                        )}
+                      >
+                        <Receipt className="w-4 h-4" />
+                        <span>Sales</span>
+                      </Link>
+                      <Link
+                        to={`/business/${unit.id}/customers`}
+                        onClick={() => setSheetOpen(false)}
+                        className={cn(
+                          'sidebar-item text-sm py-2',
+                          location.pathname === `/business/${unit.id}/customers` && 'sidebar-item-active'
+                        )}
+                      >
+                        <UserCircle className="w-4 h-4" />
+                        <span>Customers</span>
+                      </Link>
+                      <Link
+                        to={`/business/${unit.id}/debtors`}
+                        onClick={() => setSheetOpen(false)}
+                        className={cn(
+                          'sidebar-item text-sm py-2',
+                          location.pathname === `/business/${unit.id}/debtors` && 'sidebar-item-active'
+                        )}
+                      >
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>Debtors</span>
+                      </Link>
+                      <Link
                         to={`/business/${unit.id}/employees`}
                         onClick={() => setSheetOpen(false)}
                         className={cn(
@@ -206,7 +254,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="data-[state=checked]:bg-sidebar-primary"
           />
         </div>
-        
+
         <div className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent/50">
           <Avatar className="w-10 h-10">
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground font-semibold">
@@ -254,7 +302,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <span className="font-bold text-foreground">JB-Manager</span>
         </Link>
-        
+
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-xl">
@@ -294,7 +342,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             );
           })}
-          
+
           {/* Business shortcut */}
           {businessUnits.length > 0 && (
             <Link

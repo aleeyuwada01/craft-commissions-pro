@@ -36,6 +36,7 @@ import {
     Download,
     CheckCircle,
     UserCircle,
+    UserPlus,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { format } from 'date-fns';
@@ -77,6 +78,10 @@ export default function POSSystem() {
     const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
     const [lastSaleData, setLastSaleData] = useState<any>(null);
     const [amountPaid, setAmountPaid] = useState('');
+    const [showNewCustomer, setShowNewCustomer] = useState(false);
+    const [newCustomerName, setNewCustomerName] = useState('');
+    const [newCustomerPhone, setNewCustomerPhone] = useState('');
+    const [isAddingCustomer, setIsAddingCustomer] = useState(false);
 
     useEffect(() => {
         if (!businessId) return;
@@ -145,6 +150,36 @@ export default function POSSystem() {
         setSelectedCustomer(null);
         setPaymentMethod('cash');
         setAmountPaid('');
+    };
+
+    const handleAddCustomer = async () => {
+        if (!newCustomerName.trim()) {
+            toast.error('Customer name is required');
+            return;
+        }
+        setIsAddingCustomer(true);
+        try {
+            const { data, error } = await supabase
+                .from('customers')
+                .insert({
+                    business_id: businessId!,
+                    name: newCustomerName.trim(),
+                    phone: newCustomerPhone.trim() || null,
+                })
+                .select('id, name, phone')
+                .single();
+            if (error) throw error;
+            setCustomers(prev => [...prev, data]);
+            setSelectedCustomer(data);
+            setNewCustomerName('');
+            setNewCustomerPhone('');
+            setShowNewCustomer(false);
+            toast.success(`Customer "${data.name}" added!`);
+        } catch (error: any) {
+            toast.error('Failed to add customer: ' + error.message);
+        } finally {
+            setIsAddingCustomer(false);
+        }
     };
 
     const updateDiscount = (serviceId: string, discount: number) => {
@@ -448,6 +483,37 @@ export default function POSSystem() {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full mt-2"
+                                    onClick={() => setShowNewCustomer(!showNewCustomer)}
+                                >
+                                    <UserPlus className="w-4 h-4 mr-2" />
+                                    {showNewCustomer ? 'Cancel' : 'Add New Customer'}
+                                </Button>
+                                {showNewCustomer && (
+                                    <div className="space-y-2 p-3 bg-secondary/30 rounded-lg mt-2">
+                                        <Input
+                                            placeholder="Customer name *"
+                                            value={newCustomerName}
+                                            onChange={(e) => setNewCustomerName(e.target.value)}
+                                        />
+                                        <Input
+                                            placeholder="Phone number"
+                                            value={newCustomerPhone}
+                                            onChange={(e) => setNewCustomerPhone(e.target.value)}
+                                        />
+                                        <Button
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={handleAddCustomer}
+                                            disabled={isAddingCustomer || !newCustomerName.trim()}
+                                        >
+                                            {isAddingCustomer ? 'Adding...' : 'Save Customer'}
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
 
                             {cart.length > 0 && (
