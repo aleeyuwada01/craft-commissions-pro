@@ -24,9 +24,12 @@ export function useUserRole() {
                     .eq('user_id', user.id)
                     .maybeSingle();
 
+                console.log('useUserRole: Fetched role:', data);
+
                 if (data) {
                     setRole(data.role);
-                    setIsAdmin(data.role === 'admin');
+                    // Check strictly for 'admin'
+                    setIsAdmin(data.role.toLowerCase() === 'admin');
                 }
             } catch (error) {
                 console.error('Error fetching user role:', error);
