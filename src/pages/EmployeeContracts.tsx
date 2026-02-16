@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ interface Contract {
 export default function EmployeeContracts() {
     const { id: businessId } = useParams<{ id: string }>();
     const { user } = useAuth();
+    const { isAdmin, loading: roleLoading } = useUserRole();
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [loading, setLoading] = useState(true);
     const [isOwner, setIsOwner] = useState(false);
@@ -83,24 +85,25 @@ export default function EmployeeContracts() {
             toast.error('Failed to load contracts');
             console.error(error);
         } else {
-            // If user is an employee (not owner), filter to only their contracts
-            if (user && !isOwner) {
+            // If user is an employee (not owner AND not admin), filter to only their contracts
+            if (user && !isOwner && !isAdmin) {
                 const filtered = (data || []).filter(
                     (c) => c.employees?.user_id === user.id
                 );
-                setContracts(filtered);
+                setContracts(filtered as unknown as Contract[]);
             } else {
-                setContracts(data || []);
+                setContracts((data || []) as unknown as Contract[]);
             }
         }
         setLoading(false);
     };
 
-    // Re-fetch when ownership is determined
+    // Re-fetch when ownership or admin role is determined
     useEffect(() => {
-        if (!loading) return; // Don't re-fetch if already loaded
+        // If role is still loading, don't run logic yet
+        if (roleLoading) return;
         fetchContracts();
-    }, [isOwner]);
+    }, [isOwner, isAdmin, roleLoading]);
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -158,8 +161,8 @@ export default function EmployeeContracts() {
                     </div>
                 </div>
 
-                {/* Only owners can create new contracts */}
-                {isOwner && (
+                {/* Only owners and admins can create new contracts */}
+                {(isOwner || isAdmin) && (
                     <Link to={`/business/${businessId}/contracts/new`}>
                         <Button>
                             <Plus className="w-4 h-4 mr-2" />

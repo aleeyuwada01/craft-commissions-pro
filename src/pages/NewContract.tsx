@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,29 +29,37 @@ export default function NewContract() {
     const [loading, setLoading] = useState(false);
     const [checkingAccess, setCheckingAccess] = useState(true);
 
-    // Owner-only guard
+    const { isAdmin, loading: roleLoading } = useUserRole();
+
+    // Owner-only or Admin guard
     useEffect(() => {
-        const checkOwnership = async () => {
+        const checkAccess = async () => {
+            if (roleLoading) return;
+
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
                 navigate('/');
                 return;
             }
+
+            // Check ownership
             const { data } = await supabase
                 .from('business_units')
                 .select('id')
                 .eq('id', businessId)
                 .eq('user_id', user.id)
                 .maybeSingle();
-            if (!data) {
-                toast.error('Only business owners can create contracts');
+
+            // Allow if owner OR admin
+            if (!data && !isAdmin) {
+                toast.error('Only business owners or admins can create contracts');
                 navigate(`/business/${businessId}/contracts`);
                 return;
             }
             setCheckingAccess(false);
         };
-        checkOwnership();
-    }, [businessId, navigate]);
+        checkAccess();
+    }, [businessId, navigate, isAdmin, roleLoading]);
 
     // Form state
     const [employeeId, setEmployeeId] = useState('');
