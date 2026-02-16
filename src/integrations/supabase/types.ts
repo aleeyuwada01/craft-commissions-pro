@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -82,7 +82,10 @@ export type Database = {
           end_time: string
           id: string
           notes: string | null
+          payment_link: string | null
+          payment_status: string | null
           price: number
+          receipt_sent: boolean | null
           reminder_sent: boolean | null
           service_id: string
           start_time: string
@@ -100,7 +103,10 @@ export type Database = {
           end_time: string
           id?: string
           notes?: string | null
+          payment_link?: string | null
+          payment_status?: string | null
           price: number
+          receipt_sent?: boolean | null
           reminder_sent?: boolean | null
           service_id: string
           start_time: string
@@ -118,7 +124,10 @@ export type Database = {
           end_time?: string
           id?: string
           notes?: string | null
+          payment_link?: string | null
+          payment_status?: string | null
           price?: number
+          receipt_sent?: boolean | null
           reminder_sent?: boolean | null
           service_id?: string
           start_time?: string
@@ -158,6 +167,7 @@ export type Database = {
       }
       business_units: {
         Row: {
+          address: string | null
           color: string | null
           created_at: string
           flutterwave_public_key: string | null
@@ -167,11 +177,13 @@ export type Database = {
           name: string
           paystack_public_key: string | null
           paystack_secret_key: string | null
+          phone: string | null
           type: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          address?: string | null
           color?: string | null
           created_at?: string
           flutterwave_public_key?: string | null
@@ -181,11 +193,13 @@ export type Database = {
           name: string
           paystack_public_key?: string | null
           paystack_secret_key?: string | null
+          phone?: string | null
           type?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          address?: string | null
           color?: string | null
           created_at?: string
           flutterwave_public_key?: string | null
@@ -195,6 +209,7 @@ export type Database = {
           name?: string
           paystack_public_key?: string | null
           paystack_secret_key?: string | null
+          phone?: string | null
           type?: string
           updated_at?: string
           user_id?: string
@@ -369,7 +384,7 @@ export type Database = {
           id: string
           last_visit: string | null
           loyalty_points: number | null
-          name: string
+          name: string | null
           notes: string | null
           phone: string | null
           total_spent: number | null
@@ -385,7 +400,7 @@ export type Database = {
           id?: string
           last_visit?: string | null
           loyalty_points?: number | null
-          name: string
+          name?: string | null
           notes?: string | null
           phone?: string | null
           total_spent?: number | null
@@ -401,7 +416,7 @@ export type Database = {
           id?: string
           last_visit?: string | null
           loyalty_points?: number | null
-          name?: string
+          name?: string | null
           notes?: string | null
           phone?: string | null
           total_spent?: number | null
@@ -931,6 +946,50 @@ export type Database = {
           },
         ]
       }
+      payment_settings: {
+        Row: {
+          account_name: string | null
+          account_number: string | null
+          bank_name: string | null
+          business_id: string
+          created_at: string
+          id: string
+          payment_instructions: string | null
+          paystack_enabled: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
+          business_id: string
+          created_at?: string
+          id?: string
+          payment_instructions?: string | null
+          paystack_enabled?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
+          business_id?: string
+          created_at?: string
+          id?: string
+          payment_instructions?: string | null
+          paystack_enabled?: boolean | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_settings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "business_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_transactions: {
         Row: {
           amount: number
@@ -1204,6 +1263,8 @@ export type Database = {
       }
       sales: {
         Row: {
+          amount_paid: number
+          balance_due: number
           business_id: string
           created_at: string
           customer_id: string | null
@@ -1219,6 +1280,8 @@ export type Database = {
           total_amount: number
         }
         Insert: {
+          amount_paid?: number
+          balance_due?: number
           business_id: string
           created_at?: string
           customer_id?: string | null
@@ -1234,6 +1297,8 @@ export type Database = {
           total_amount: number
         }
         Update: {
+          amount_paid?: number
+          balance_due?: number
           business_id?: string
           created_at?: string
           customer_id?: string | null
@@ -1606,6 +1671,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
       notify_low_stock: { Args: never; Returns: undefined }
       schedule_booking_reminder: {
         Args: { p_booking_id: string; p_hours_before?: number }
@@ -1745,4 +1811,3 @@ export const Constants = {
     },
   },
 } as const
-

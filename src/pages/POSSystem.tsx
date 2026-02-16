@@ -71,9 +71,12 @@ export default function POSSystem() {
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [businessName, setBusinessName] = useState('');
+    const [businessAddress, setBusinessAddress] = useState('');
+    const [businessPhone, setBusinessPhone] = useState('');
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'paystack' | 'flutterwave'>('cash');
     const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
     const [lastSaleData, setLastSaleData] = useState<any>(null);
+    const [amountPaid, setAmountPaid] = useState('');
 
     useEffect(() => {
         if (!businessId) return;
@@ -84,13 +87,17 @@ export default function POSSystem() {
             .eq('business_id', businessId)
             .order('name')
             .then(({ data }) => setCustomers(data || []));
-        // Fetch business name
+        // Fetch business info
         supabase
             .from('business_units')
-            .select('name')
+            .select('name, address, phone')
             .eq('id', businessId)
             .single()
-            .then(({ data }) => setBusinessName(data?.name || 'Business'));
+            .then(({ data }) => {
+                setBusinessName(data?.name || 'Business');
+                setBusinessAddress(data?.address || 'KHALEELUL RAHMAN PLAZA,NEW OFF HIGHER COURT, ROUND ABOUT KATSINA, KATSINA STATE');
+                setBusinessPhone(data?.phone || '08063901258, 08036433830, 09037705244, 09060686086');
+            });
     }, [businessId]);
 
     const filteredServices = services.filter(service =>
@@ -137,6 +144,16 @@ export default function POSSystem() {
         setCart([]);
         setSelectedCustomer(null);
         setPaymentMethod('cash');
+        setAmountPaid('');
+    };
+
+    const updateDiscount = (serviceId: string, discount: number) => {
+        setCart(cart.map(item => {
+            if (item.service.id === serviceId) {
+                return { ...item, discount: Math.max(0, discount) };
+            }
+            return item;
+        }));
     };
 
     const calculateSubtotal = () => {
@@ -164,19 +181,32 @@ export default function POSSystem() {
             return;
         }
 
+        const total = calculateTotal();
+        const paid = amountPaid ? parseFloat(amountPaid) : total;
+        const balance = Math.max(0, total - paid);
+        const paymentStatus = balance > 0 ? 'partial' : 'completed';
+
         try {
+            // Generate sale number
+            const { data: saleNumber } = await supabase.rpc('generate_sale_number', {
+                p_business_id: businessId!,
+            });
+
             // Create sale
             const { data: sale, error: saleError } = await supabase
                 .from('sales')
                 .insert({
-                    business_id: businessId,
+                    business_id: businessId!,
+                    sale_number: saleNumber || `SL-${Date.now()}`,
                     customer_id: selectedCustomer?.id || null,
                     subtotal: calculateSubtotal(),
                     tax_amount: calculateTax(),
                     discount_amount: calculateDiscount(),
-                    total_amount: calculateTotal(),
+                    total_amount: total,
+                    amount_paid: paid,
+                    balance_due: balance,
                     payment_method: paymentMethod,
-                    payment_status: 'completed',
+                    payment_status: paymentStatus,
                 })
                 .select()
                 .single();
@@ -191,7 +221,7 @@ export default function POSSystem() {
                 unit_price: item.unit_price,
                 discount: item.discount,
                 tax_amount: (item.service.tax_rate || 0) * item.unit_price * item.quantity / 100,
-                total: item.unit_price * item.quantity,
+                total: item.unit_price * item.quantity - item.discount,
             }));
 
             const { error: itemsError } = await supabase
@@ -205,7 +235,7 @@ export default function POSSystem() {
                 .from('payments')
                 .insert({
                     sale_id: sale.id,
-                    amount: calculateTotal(),
+                    amount: paid,
                     payment_method: paymentMethod,
                     status: 'successful',
                 });
@@ -217,23 +247,29 @@ export default function POSSystem() {
                 receiptNumber: `RCP-${sale.id.slice(0, 8).toUpperCase()}`,
                 date: format(new Date(), 'MMM d, yyyy h:mm a'),
                 businessName,
+                businessAddress,
+                businessPhone,
                 customerName: selectedCustomer?.name || 'Walk-in Customer',
                 items: cart.map(item => ({
                     name: item.service.name,
                     quantity: item.quantity,
                     unitPrice: item.unit_price,
-                    total: item.unit_price * item.quantity,
+                    discount: item.discount,
+                    total: item.unit_price * item.quantity - item.discount,
                 })),
                 subtotal: calculateSubtotal(),
                 taxAmount: calculateTax(),
                 discountAmount: calculateDiscount(),
-                totalAmount: calculateTotal(),
+                totalAmount: total,
+                amountPaid: paid,
+                balanceDue: balance,
                 paymentMethod,
+                paymentStatus,
             };
 
             setLastSaleData(receiptData);
             setReceiptDialogOpen(true);
-            toast.success('Sale completed successfully!');
+            toast.success(balance > 0 ? 'Sale recorded with outstanding balance!' : 'Sale completed successfully!');
             clearCart();
 
         } catch (error: any) {
@@ -324,39 +360,56 @@ export default function POSSystem() {
                                     </p>
                                 ) : (
                                     cart.map(item => (
-                                        <div key={item.service.id} className="flex items-center gap-2 p-2 bg-secondary/30 rounded-lg">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium text-sm truncate">{item.service.name}</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {formatCurrency(item.unit_price)} × {item.quantity}
-                                                </p>
+                                        <div key={item.service.id} className="p-2 bg-secondary/30 rounded-lg space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium text-sm truncate">{item.service.name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {formatCurrency(item.unit_price)} × {item.quantity}
+                                                        {item.discount > 0 && (
+                                                            <span className="text-green-600 ml-1">(-{formatCurrency(item.discount)})</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7"
+                                                        onClick={() => updateQuantity(item.service.id, -1)}
+                                                    >
+                                                        <Minus className="w-3 h-3" />
+                                                    </Button>
+                                                    <span className="w-8 text-center text-sm">{item.quantity}</span>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7"
+                                                        onClick={() => updateQuantity(item.service.id, 1)}
+                                                    >
+                                                        <Plus className="w-3 h-3" />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-destructive"
+                                                        onClick={() => removeFromCart(item.service.id)}
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-1">
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7"
-                                                    onClick={() => updateQuantity(item.service.id, -1)}
-                                                >
-                                                    <Minus className="w-3 h-3" />
-                                                </Button>
-                                                <span className="w-8 text-center text-sm">{item.quantity}</span>
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7"
-                                                    onClick={() => updateQuantity(item.service.id, 1)}
-                                                >
-                                                    <Plus className="w-3 h-3" />
-                                                </Button>
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="h-7 w-7 text-destructive"
-                                                    onClick={() => removeFromCart(item.service.id)}
-                                                >
-                                                    <Trash2 className="w-3 h-3" />
-                                                </Button>
+                                            {/* Per-item Discount */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-muted-foreground">Discount:</span>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    placeholder="0"
+                                                    value={item.discount || ''}
+                                                    onChange={(e) => updateDiscount(item.service.id, parseFloat(e.target.value) || 0)}
+                                                    className="h-7 text-xs w-24"
+                                                />
                                             </div>
                                         </div>
                                     ))
@@ -464,13 +517,35 @@ export default function POSSystem() {
                                         </div>
                                     </div>
 
+                                    {/* Amount Paid (Part Payment) */}
+                                    <div className="space-y-2">
+                                        <p className="text-sm font-medium">Amount Paid</p>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            placeholder={`Full: ${formatCurrency(calculateTotal())}`}
+                                            value={amountPaid}
+                                            onChange={(e) => setAmountPaid(e.target.value)}
+                                        />
+                                        {amountPaid && parseFloat(amountPaid) < calculateTotal() && (
+                                            <div className="p-2 bg-amber-50 dark:bg-amber-950 rounded text-xs">
+                                                <p className="text-amber-700 dark:text-amber-300 font-medium">
+                                                    ⚠ Part Payment — Balance: {formatCurrency(calculateTotal() - parseFloat(amountPaid))}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {/* Checkout Button */}
                                     <Button
                                         className="w-full"
                                         size="lg"
                                         onClick={handleCheckout}
                                     >
-                                        Complete Sale - {formatCurrency(calculateTotal())}
+                                        {amountPaid && parseFloat(amountPaid) < calculateTotal()
+                                            ? `Record Part Payment - ${formatCurrency(parseFloat(amountPaid))}`
+                                            : `Complete Sale - ${formatCurrency(calculateTotal())}`
+                                        }
                                     </Button>
                                     <Button
                                         variant="outline"
@@ -492,13 +567,17 @@ export default function POSSystem() {
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-green-600">
                             <CheckCircle className="w-5 h-5" />
-                            Sale Completed!
+                            {lastSaleData?.balanceDue > 0 ? 'Part Payment Recorded!' : 'Sale Completed!'}
                         </DialogTitle>
                     </DialogHeader>
                     {lastSaleData && (
                         <div className="space-y-4">
-                            <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg text-center">
-                                <p className="text-2xl font-bold text-green-600">
+                            <div className={`p-4 rounded-lg text-center ${lastSaleData.balanceDue > 0
+                                ? 'bg-amber-50 dark:bg-amber-950'
+                                : 'bg-green-50 dark:bg-green-950'
+                                }`}>
+                                <p className={`text-2xl font-bold ${lastSaleData.balanceDue > 0 ? 'text-amber-600' : 'text-green-600'
+                                    }`}>
                                     {formatCurrency(lastSaleData.totalAmount)}
                                 </p>
                                 <p className="text-sm text-muted-foreground mt-1">
@@ -516,9 +595,15 @@ export default function POSSystem() {
                                     <span>{lastSaleData.customerName}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Items:</span>
-                                    <span>{lastSaleData.items.length} item(s)</span>
+                                    <span className="text-muted-foreground">Amount Paid:</span>
+                                    <span className="font-semibold text-green-600">{formatCurrency(lastSaleData.amountPaid)}</span>
                                 </div>
+                                {lastSaleData.balanceDue > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Balance Due:</span>
+                                        <span className="font-semibold text-red-600">{formatCurrency(lastSaleData.balanceDue)}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <PDFDownloadLink

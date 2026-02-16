@@ -1,6 +1,5 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { format } from 'date-fns';
 
 const styles = StyleSheet.create({
     page: {
@@ -10,18 +9,30 @@ const styles = StyleSheet.create({
     },
     header: {
         textAlign: 'center',
-        marginBottom: 15,
-        paddingBottom: 10,
+        marginBottom: 10,
+        paddingBottom: 8,
         borderBottom: '1 solid #333',
     },
     businessName: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
-        marginBottom: 3,
+        marginBottom: 2,
+    },
+    businessAddress: {
+        fontSize: 7,
+        color: '#444',
+        marginBottom: 2,
+        lineHeight: 1.4,
+    },
+    businessPhone: {
+        fontSize: 7,
+        color: '#444',
+        marginBottom: 4,
     },
     receiptTitle: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#555',
+        marginTop: 4,
     },
     infoRow: {
         flexDirection: 'row',
@@ -47,7 +58,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     itemHeaderText: {
-        fontSize: 9,
+        fontSize: 8,
         fontWeight: 'bold',
     },
     itemRow: {
@@ -57,22 +68,28 @@ const styles = StyleSheet.create({
     },
     itemName: {
         flex: 3,
-        fontSize: 9,
+        fontSize: 8,
     },
     itemQty: {
         flex: 1,
-        fontSize: 9,
+        fontSize: 8,
         textAlign: 'center',
     },
     itemPrice: {
         flex: 2,
-        fontSize: 9,
+        fontSize: 8,
         textAlign: 'right',
     },
     itemTotal: {
         flex: 2,
-        fontSize: 9,
+        fontSize: 8,
         textAlign: 'right',
+    },
+    itemDiscount: {
+        fontSize: 7,
+        color: '#2e7d32',
+        marginLeft: 4,
+        marginBottom: 2,
     },
     summaryRow: {
         flexDirection: 'row',
@@ -102,8 +119,8 @@ const styles = StyleSheet.create({
     },
     footer: {
         textAlign: 'center',
-        marginTop: 20,
-        fontSize: 9,
+        marginTop: 15,
+        fontSize: 8,
         color: '#888',
     },
     paymentBadge: {
@@ -118,12 +135,32 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#2e7d32',
     },
+    balanceBadge: {
+        backgroundColor: '#fff3e0',
+        padding: 6,
+        borderRadius: 3,
+        textAlign: 'center',
+        marginTop: 6,
+        borderWidth: 1,
+        borderColor: '#ff9800',
+    },
+    balanceText: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: '#e65100',
+    },
+    balanceSubText: {
+        fontSize: 8,
+        color: '#bf360c',
+        marginTop: 2,
+    },
 });
 
 interface SaleItem {
     name: string;
     quantity: number;
     unitPrice: number;
+    discount?: number;
     total: number;
 }
 
@@ -131,13 +168,18 @@ interface SaleReceiptData {
     receiptNumber: string;
     date: string;
     businessName: string;
+    businessAddress?: string;
+    businessPhone?: string;
     cashierName?: string;
     items: SaleItem[];
     subtotal: number;
     taxAmount: number;
     discountAmount: number;
     totalAmount: number;
+    amountPaid?: number;
+    balanceDue?: number;
     paymentMethod: string;
+    paymentStatus?: string;
     customerName?: string;
 }
 
@@ -150,12 +192,20 @@ function formatNaira(amount: number): string {
 }
 
 export function SaleReceiptPDF({ data }: SaleReceiptPDFProps) {
+    const hasBalance = (data.balanceDue || 0) > 0;
+
     return (
         <Document>
             <Page size={[226, 'auto']} style={styles.page}>
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={styles.businessName}>{data.businessName}</Text>
+                    {data.businessAddress && (
+                        <Text style={styles.businessAddress}>{data.businessAddress}</Text>
+                    )}
+                    {data.businessPhone && (
+                        <Text style={styles.businessPhone}>Tel: {data.businessPhone}</Text>
+                    )}
                     <Text style={styles.receiptTitle}>SALES RECEIPT</Text>
                 </View>
 
@@ -195,11 +245,16 @@ export function SaleReceiptPDF({ data }: SaleReceiptPDFProps) {
 
                 {/* Items */}
                 {data.items.map((item, index) => (
-                    <View key={index} style={styles.itemRow}>
-                        <Text style={styles.itemName}>{item.name}</Text>
-                        <Text style={styles.itemQty}>{item.quantity}</Text>
-                        <Text style={styles.itemPrice}>{formatNaira(item.unitPrice)}</Text>
-                        <Text style={styles.itemTotal}>{formatNaira(item.total)}</Text>
+                    <View key={index}>
+                        <View style={styles.itemRow}>
+                            <Text style={styles.itemName}>{item.name}</Text>
+                            <Text style={styles.itemQty}>{item.quantity}</Text>
+                            <Text style={styles.itemPrice}>{formatNaira(item.unitPrice)}</Text>
+                            <Text style={styles.itemTotal}>{formatNaira(item.total)}</Text>
+                        </View>
+                        {(item.discount || 0) > 0 && (
+                            <Text style={styles.itemDiscount}>  Discount: -{formatNaira(item.discount!)}</Text>
+                        )}
                     </View>
                 ))}
 
@@ -219,7 +274,7 @@ export function SaleReceiptPDF({ data }: SaleReceiptPDFProps) {
                     )}
                     {data.discountAmount > 0 && (
                         <View style={styles.summaryRow}>
-                            <Text style={[styles.summaryLabel, { color: '#2e7d32' }]}>Discount:</Text>
+                            <Text style={[styles.summaryLabel, { color: '#2e7d32' }]}>Total Discount:</Text>
                             <Text style={[styles.summaryValue, { color: '#2e7d32' }]}>-{formatNaira(data.discountAmount)}</Text>
                         </View>
                     )}
@@ -231,17 +286,43 @@ export function SaleReceiptPDF({ data }: SaleReceiptPDFProps) {
                     <Text style={styles.totalValue}>{formatNaira(data.totalAmount)}</Text>
                 </View>
 
-                {/* Payment Method */}
+                {/* Amount Paid */}
                 <View style={styles.paymentBadge}>
                     <Text style={styles.paymentText}>
-                        PAID - {data.paymentMethod.toUpperCase()}
+                        {hasBalance ? 'PART PAYMENT' : 'PAID'} - {data.paymentMethod.toUpperCase()}
                     </Text>
                 </View>
 
+                {data.amountPaid !== undefined && (
+                    <View style={[styles.summaryRow, { marginTop: 8 }]}>
+                        <Text style={[styles.summaryLabel, { fontWeight: 'bold' }]}>Amount Paid:</Text>
+                        <Text style={[styles.summaryValue, { fontWeight: 'bold', color: '#2e7d32' }]}>
+                            {formatNaira(data.amountPaid)}
+                        </Text>
+                    </View>
+                )}
+
+                {/* Outstanding Balance */}
+                {hasBalance && (
+                    <View style={styles.balanceBadge}>
+                        <Text style={styles.balanceText}>
+                            BALANCE DUE: {formatNaira(data.balanceDue!)}
+                        </Text>
+                        <Text style={styles.balanceSubText}>
+                            Payment outstanding - Please settle at your earliest convenience
+                        </Text>
+                    </View>
+                )}
+
                 {/* Footer */}
                 <View style={styles.footer}>
-                    <Text>Thank you for your purchase!</Text>
+                    <Text>Thank you for your patronage!</Text>
                     <Text style={{ marginTop: 3 }}>Please keep this receipt for your records</Text>
+                    {hasBalance && (
+                        <Text style={{ marginTop: 3, fontWeight: 'bold', color: '#e65100' }}>
+                            *** Outstanding balance of {formatNaira(data.balanceDue!)} ***
+                        </Text>
+                    )}
                 </View>
             </Page>
         </Document>
