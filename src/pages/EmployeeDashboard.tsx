@@ -40,6 +40,7 @@ import {
   Sparkles,
   Plus,
   ShoppingCart,
+  FileText,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths, eachWeekOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 
