@@ -196,7 +196,7 @@ export function SaleReceiptPDF({ data }: SaleReceiptPDFProps) {
 
     return (
         <Document>
-            <Page size={[226, 'auto']} style={styles.page}>
+            <Page size={[226, 600]} style={styles.page}>
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={styles.businessName}>{data.businessName}</Text>

@@ -219,7 +219,8 @@ export default function POSSystem() {
         const total = calculateTotal();
         const paid = amountPaid ? parseFloat(amountPaid) : total;
         const balance = Math.max(0, total - paid);
-        const paymentStatus = balance > 0 ? 'partial' : 'completed';
+        // Use 'pending' for part-payments (DB constraint: pending/completed/refunded)
+        const paymentStatus = balance > 0 ? 'pending' : 'completed';
 
         try {
             // Generate sale number
@@ -227,7 +228,7 @@ export default function POSSystem() {
                 p_business_id: businessId!,
             });
 
-            // Create sale
+            // Create sale (only columns that exist in schema)
             const { data: sale, error: saleError } = await supabase
                 .from('sales')
                 .insert({
@@ -238,8 +239,6 @@ export default function POSSystem() {
                     tax_amount: calculateTax(),
                     discount_amount: calculateDiscount(),
                     total_amount: total,
-                    amount_paid: paid,
-                    balance_due: balance,
                     payment_method: paymentMethod,
                     payment_status: paymentStatus,
                 })

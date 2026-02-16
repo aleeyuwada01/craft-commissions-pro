@@ -38,7 +38,7 @@ interface Sale {
     employees: { name: string } | null;
 }
 
-type StatusFilter = 'all' | 'completed' | 'pending' | 'refunded';
+type StatusFilter = 'all' | 'completed' | 'pending' | 'partial' | 'refunded';
 
 export default function SalesHistory() {
     const { id: businessId } = useParams<{ id: string }>();
@@ -122,6 +122,8 @@ export default function SalesHistory() {
                 return 'bg-green-500/10 text-green-600 border-green-500/20';
             case 'pending':
                 return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
+            case 'partial':
+                return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
             case 'refunded':
                 return 'bg-red-500/10 text-red-600 border-red-500/20';
             default:
@@ -232,6 +234,7 @@ export default function SalesHistory() {
                     <SelectContent>
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="partial">Partial Payment</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="refunded">Refunded</SelectItem>
                     </SelectContent>
