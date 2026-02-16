@@ -26,6 +26,7 @@ import {
     X,
     Eye,
     Printer,
+    DollarSign,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -289,6 +290,57 @@ export default function ViewContract() {
                         <div className="mt-2 p-4 bg-secondary/30 rounded-lg text-sm whitespace-pre-wrap">
                             {contract.terms}
                         </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Compensation & Benefits Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="w-5 h-5" />
+                        Compensation & Benefits
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <Label>Salary / Rate</Label>
+                            <p className="text-2xl font-bold text-primary mt-1">
+                                {contract.salary_amount
+                                    ? `₦${contract.salary_amount.toLocaleString()}`
+                                    : 'Not specified'}
+                            </p>
+                            {contract.salary_frequency && (
+                                <p className="text-sm text-muted-foreground capitalize">
+                                    per {contract.salary_frequency}
+                                </p>
+                            )}
+                        </div>
+                        {contract.employees?.commission_percentage && (
+                            <div>
+                                <Label>Commission Rate</Label>
+                                <div className="mt-1">
+                                    <Badge variant="secondary" className="text-lg px-3 py-1 bg-purple-100 text-purple-700 border-purple-200">
+                                        {contract.employees.commission_percentage}%
+                                    </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    on generated revenue
+                                </p>
+                            </div>
+                        )}
+                        {contract.employees?.fixed_commission && (
+                            <div>
+                                <Label>Fixed Commission</Label>
+                                <p className="text-2xl font-bold text-purple-600 mt-1">
+                                    ₦{contract.employees.fixed_commission.toLocaleString()}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    per service performed
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>

@@ -1,16 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
     ArrowLeft,
@@ -37,13 +31,32 @@ interface Contract {
     created_at: string;
     employees: {
         name: string;
+        user_id: string | null;
     } | null;
 }
 
 export default function EmployeeContracts() {
     const { id: businessId } = useParams<{ id: string }>();
+    const { user } = useAuth();
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isOwner, setIsOwner] = useState(false);
+
+    useEffect(() => {
+        checkOwnership();
+        fetchContracts();
+    }, [businessId]);
+
+    const checkOwnership = async () => {
+        if (!businessId || !user) return;
+        const { data } = await supabase
+            .from('business_units')
+            .select('id')
+            .eq('id', businessId)
+            .eq('user_id', user.id)
+            .maybeSingle();
+        setIsOwner(!!data);
+    };
 
     const fetchContracts = async () => {
         if (!businessId) return;
@@ -51,9 +64,18 @@ export default function EmployeeContracts() {
         const { data, error } = await supabase
             .from('employee_contracts')
             .select(`
-        *,
-        employees(name)
-      `)
+                id,
+                employee_id,
+                title,
+                contract_type,
+                start_date,
+                end_date,
+                status,
+                employee_signed_at,
+                employer_signed_at,
+                created_at,
+                employees(name, user_id)
+            `)
             .eq('business_id', businessId)
             .order('created_at', { ascending: false });
 
@@ -61,14 +83,24 @@ export default function EmployeeContracts() {
             toast.error('Failed to load contracts');
             console.error(error);
         } else {
-            setContracts(data || []);
+            // If user is an employee (not owner), filter to only their contracts
+            if (user && !isOwner) {
+                const filtered = (data || []).filter(
+                    (c) => c.employees?.user_id === user.id
+                );
+                setContracts(filtered);
+            } else {
+                setContracts(data || []);
+            }
         }
         setLoading(false);
     };
 
+    // Re-fetch when ownership is determined
     useEffect(() => {
+        if (!loading) return; // Don't re-fetch if already loaded
         fetchContracts();
-    }, [businessId]);
+    }, [isOwner]);
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -111,25 +143,30 @@ export default function EmployeeContracts() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link to={`/business/${businessId}`}>
+                    <Link to={isOwner ? `/business/${businessId}` : '/employee'}>
                         <Button variant="ghost" size="icon">
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
                     </Link>
                     <div>
-                        <h1 className="text-2xl font-bold">Employee Contracts</h1>
+                        <h1 className="text-2xl font-bold">
+                            {isOwner ? 'Employee Contracts' : 'My Contracts'}
+                        </h1>
                         <p className="text-sm text-muted-foreground">
-                            {contracts.length} total contracts
+                            {contracts.length} {isOwner ? 'total contracts' : 'contract(s)'}
                         </p>
                     </div>
                 </div>
 
-                <Link to={`/business/${businessId}/contracts/new`}>
-                    <Button>
-                        <Plus className="w-4 h-4 mr-2" />
-                        New Contract
-                    </Button>
-                </Link>
+                {/* Only owners can create new contracts */}
+                {isOwner && (
+                    <Link to={`/business/${businessId}/contracts/new`}>
+                        <Button>
+                            <Plus className="w-4 h-4 mr-2" />
+                            New Contract
+                        </Button>
+                    </Link>
+                )}
             </div>
 
             {/* Contracts Grid */}
@@ -137,13 +174,17 @@ export default function EmployeeContracts() {
                 <Card>
                     <CardContent className="p-12 text-center">
                         <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-muted-foreground">No contracts found</p>
-                        <Link to={`/business/${businessId}/contracts/new`}>
-                            <Button className="mt-4">
-                                <Plus className="w-4 h-4 mr-2" />
-                                Create First Contract
-                            </Button>
-                        </Link>
+                        <p className="text-muted-foreground">
+                            {isOwner ? 'No contracts found' : 'No contracts assigned to you yet'}
+                        </p>
+                        {isOwner && (
+                            <Link to={`/business/${businessId}/contracts/new`}>
+                                <Button className="mt-4">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Create First Contract
+                                </Button>
+                            </Link>
+                        )}
                     </CardContent>
                 </Card>
             ) : (
@@ -214,7 +255,7 @@ export default function EmployeeContracts() {
                                             View
                                         </Button>
                                     </Link>
-                                    {contract.status === 'draft' && (
+                                    {isOwner && contract.status === 'draft' && (
                                         <Link
                                             to={`/business/${businessId}/contracts/${contract.id}/edit`}
                                             className="flex-1"

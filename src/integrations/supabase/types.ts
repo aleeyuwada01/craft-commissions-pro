@@ -474,55 +474,82 @@ export type Database = {
         Row: {
           business_id: string
           contract_data: Json
+          contract_type: string | null
           created_at: string
+          created_by: string | null
           employee_id: string
           employee_signature: string | null
           employee_signed_at: string | null
+          employer_name: string | null
+          employer_signature: string | null
+          employer_signed_at: string | null
           end_date: string | null
           id: string
           management_signature: string | null
           management_signed_at: string | null
           pdf_url: string | null
+          salary_amount: number | null
+          salary_frequency: string | null
           signed_by: string | null
           start_date: string | null
           status: string
           template_id: string | null
+          terms: string | null
+          title: string
           updated_at: string
         }
         Insert: {
           business_id: string
           contract_data?: Json
+          contract_type?: string | null
           created_at?: string
+          created_by?: string | null
           employee_id: string
           employee_signature?: string | null
           employee_signed_at?: string | null
+          employer_name?: string | null
+          employer_signature?: string | null
+          employer_signed_at?: string | null
           end_date?: string | null
           id?: string
           management_signature?: string | null
           management_signed_at?: string | null
           pdf_url?: string | null
+          salary_amount?: number | null
+          salary_frequency?: string | null
           signed_by?: string | null
           start_date?: string | null
           status?: string
           template_id?: string | null
+          terms?: string | null
+          title: string
           updated_at?: string
         }
         Update: {
           business_id?: string
           contract_data?: Json
+          contract_type?: string | null
           created_at?: string
+          created_by?: string | null
           employee_id?: string
           employee_signature?: string | null
           employee_signed_at?: string | null
+          employer_name?: string | null
+          employer_signature?: string | null
+          employer_signed_at?: string | null
           end_date?: string | null
           id?: string
           management_signature?: string | null
           management_signed_at?: string | null
           pdf_url?: string | null
+          salary_amount?: number | null
+          salary_frequency?: string | null
           signed_by?: string | null
           start_date?: string | null
           status?: string
           template_id?: string | null
+          terms?: string | null
+          title?: string
           updated_at?: string
         }
         Relationships: [
@@ -1672,11 +1699,16 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_employee_of_business: {
+        Args: { business_uuid: string }
+        Returns: boolean
+      }
       notify_low_stock: { Args: never; Returns: undefined }
       schedule_booking_reminder: {
         Args: { p_booking_id: string; p_hours_before?: number }
         Returns: undefined
       }
+      user_owns_sale: { Args: { sale_uuid: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"

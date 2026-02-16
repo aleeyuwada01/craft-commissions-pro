@@ -26,6 +26,31 @@ export default function NewContract() {
     const navigate = useNavigate();
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(false);
+    const [checkingAccess, setCheckingAccess] = useState(true);
+
+    // Owner-only guard
+    useEffect(() => {
+        const checkOwnership = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                navigate('/');
+                return;
+            }
+            const { data } = await supabase
+                .from('business_units')
+                .select('id')
+                .eq('id', businessId)
+                .eq('user_id', user.id)
+                .maybeSingle();
+            if (!data) {
+                toast.error('Only business owners can create contracts');
+                navigate(`/business/${businessId}/contracts`);
+                return;
+            }
+            setCheckingAccess(false);
+        };
+        checkOwnership();
+    }, [businessId, navigate]);
 
     // Form state
     const [employeeId, setEmployeeId] = useState('');
@@ -122,6 +147,14 @@ By signing below, both parties acknowledge and agree to the terms and conditions
             setLoading(false);
         }
     };
+
+    if (checkingAccess) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="animate-pulse text-muted-foreground">Verifying access...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto space-y-4">
