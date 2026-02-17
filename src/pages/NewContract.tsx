@@ -51,7 +51,9 @@ export default function NewContract() {
                 .maybeSingle();
 
             // Allow if owner OR admin
+            // Note: isAdmin comes from useUserRole hook which checks the user_roles table
             if (!data && !isAdmin) {
+                console.log('Access denied: User is not owner and not admin', { isAdmin, businessId });
                 toast.error('Only business owners or admins can create contracts');
                 navigate(`/business/${businessId}/contracts`);
                 return;
