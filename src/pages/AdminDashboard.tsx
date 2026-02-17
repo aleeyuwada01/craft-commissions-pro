@@ -90,15 +90,10 @@ export default function AdminDashboard() {
                 console.error('AdminDashboard: Error checking system settings:', error);
             }
 
-            console.log('AdminDashboard: system_settings data:', data);
-
             if (data) {
                 // Handle both boolean true and string "true"
                 const isEnabled = data.value === true || data.value === 'true';
-                console.log('AdminDashboard: Setting isResetEnabled to:', isEnabled);
                 setIsResetEnabled(isEnabled);
-            } else {
-                console.log('AdminDashboard: No system_settings data found or RLS blocked it');
             }
         } catch (error) {
             console.error('Failed to check system settings:', error);

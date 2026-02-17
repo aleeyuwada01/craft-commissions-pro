@@ -28,18 +28,14 @@ export function useUserRole() {
                     .eq('user_id', user.id)
                     .maybeSingle();
 
-                console.log('useUserRole: Fetched data from user_roles:', data);
 
                 if (data) {
                     setRole(data.role);
                     const isUserAdmin = data.role.toLowerCase() === 'admin';
-                    console.log('useUserRole: Setting isAdmin to:', isUserAdmin);
                     setIsAdmin(isUserAdmin);
-                } else {
-                    console.log('useUserRole: No role found for user:', user.id);
                 }
             } catch (error) {
-                console.error('useUserRole: Error fetching user role:', error);
+                console.error('Error fetching user role:', error);
             } finally {
                 setLoading(false);
             }
