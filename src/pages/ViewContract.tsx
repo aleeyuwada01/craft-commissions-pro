@@ -68,9 +68,11 @@ export default function ViewContract() {
     const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
     const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
     const [terminationReason, setTerminationReason] = useState('');
-    const [isEmployeeView, setIsEmployeeView] = useState(false);
 
     const signaturePadRef = useRef<SignatureCanvas>(null);
+
+    // Derived state to avoid sync issues
+    const isEmployeeView = contract?.employees?.user_id === user?.id;
 
     const fetchContract = async () => {
         if (!contractId) return;
@@ -91,8 +93,6 @@ export default function ViewContract() {
             navigate(`/business/${businessId}/contracts`);
         } else {
             setContract(data);
-            // Check if current user is the employee
-            setIsEmployeeView(data.employees?.user_id === user?.id);
         }
         setLoading(false);
     };
