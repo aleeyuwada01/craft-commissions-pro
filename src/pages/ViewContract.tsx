@@ -123,7 +123,7 @@ export default function ViewContract() {
                 : {
                     employer_signature: signatureData,
                     employer_signed_at: new Date().toISOString(),
-                    employer_name: contract?.business_units?.name || 'Employer',
+                    employer_name: contract?.business_units?.name || 'Management',
                     status: contract?.employee_signed_at ? 'signed' : 'pending',
                 };
 
@@ -376,7 +376,7 @@ export default function ViewContract() {
 
                         {/* Employer Signature */}
                         <div>
-                            <Label className="mb-2 block">Employer Signature</Label>
+                            <Label className="mb-2 block">Management/CEO Signature</Label>
                             {contract.employer_signature ? (
                                 <div>
                                     <img
@@ -405,7 +405,7 @@ export default function ViewContract() {
                 {canSign && (
                     <Button onClick={() => setSignDialogOpen(true)}>
                         <Pencil className="w-4 h-4 mr-2" />
-                        Sign Contract
+                        {isEmployeeView ? 'Sign as Employee' : 'Sign as Management'}
                     </Button>
                 )}
 
@@ -441,7 +441,9 @@ export default function ViewContract() {
             <Dialog open={signDialogOpen} onOpenChange={setSignDialogOpen}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Sign Contract</DialogTitle>
+                        <DialogTitle>
+                            {isEmployeeView ? 'Sign as Employee' : 'Sign as Management'}
+                        </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                         <p className="text-sm text-muted-foreground">
