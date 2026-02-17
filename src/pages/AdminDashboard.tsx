@@ -84,8 +84,10 @@ export default function AdminDashboard() {
                 .eq('key', 'hard_reset_enabled')
                 .maybeSingle();
 
-            if (data && data.value === true) {
-                setIsResetEnabled(true);
+            if (data) {
+                // Handle both boolean true and string "true"
+                const isEnabled = data.value === true || data.value === 'true';
+                setIsResetEnabled(isEnabled);
             }
         } catch (error) {
             console.error('Failed to check system settings:', error);
