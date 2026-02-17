@@ -83,7 +83,7 @@ export default function ViewContract() {
             .from('employee_contracts')
             .select(`
         *,
-        employees(name, user_id),
+        employees(name, user_id, commission_percentage, fixed_commission),
         business_units(name)
       `)
             .eq('id', contractId)
