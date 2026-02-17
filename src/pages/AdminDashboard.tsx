@@ -65,14 +65,60 @@ export default function AdminDashboard() {
     const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [isResetEnabled, setIsResetEnabled] = useState(false);
 
     useEffect(() => {
         fetchAdminData();
+        checkSystemSettings();
     }, []);
 
     useEffect(() => {
         filterSales();
     }, [sales, searchTerm, statusFilter]);
+
+    const checkSystemSettings = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('system_settings')
+                .select('value')
+                .eq('key', 'hard_reset_enabled')
+                .maybeSingle();
+
+            if (data && data.value === true) {
+                setIsResetEnabled(true);
+            }
+        } catch (error) {
+            console.error('Failed to check system settings:', error);
+        }
+    };
+
+    const handleHardReset = async () => {
+        if (!window.confirm('WARNING: THIS WILL DELETE ALL DATA. ARE YOU SURE?')) {
+            return;
+        }
+
+        if (!window.confirm('THIS ACTION CANNOT BE UNDONE. PLEASE TYPE "DELETE" TO CONFIRM.')) {
+            return;
+        }
+
+        const confirmation = window.prompt('Type "DELETE" to confirm hard reset:');
+        if (confirmation !== 'DELETE') return;
+
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.functions.invoke('admin-hard-reset');
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+
+            toast.success('System hard reset successful');
+            window.location.reload();
+        } catch (error: any) {
+            toast.error('Reset failed: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchAdminData = async () => {
         try {
@@ -240,6 +286,34 @@ export default function AdminDashboard() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {isResetEnabled && (
+                    <Card className="border-red-500 bg-red-50 dark:bg-red-950/20">
+                        <CardHeader>
+                            <CardTitle className="text-red-600 flex items-center gap-2">
+                                <Shield className="w-5 h-5" />
+                                Danger Zone
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="font-semibold text-red-600">Hard Reset System</h3>
+                                    <p className="text-sm text-red-600/80">
+                                        Permanently delete all business units, transactions, and users.
+                                        This action cannot be undone.
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="destructive"
+                                    onClick={handleHardReset}
+                                >
+                                    Hard Reset System
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Filters and Export */}
                 <Card>
