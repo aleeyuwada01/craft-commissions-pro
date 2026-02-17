@@ -68,9 +68,11 @@ export default function AdminDashboard() {
     const [isResetEnabled, setIsResetEnabled] = useState(false);
 
     useEffect(() => {
-        fetchAdminData();
-        checkSystemSettings();
-    }, []);
+        if (user) {
+            fetchAdminData();
+            checkSystemSettings();
+        }
+    }, [user]);
 
     useEffect(() => {
         filterSales();
