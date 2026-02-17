@@ -52,6 +52,8 @@ interface Contract {
     employees: {
         name: string;
         user_id: string;
+        commission_percentage?: number;
+        fixed_commission?: number;
     } | null;
     business_units: {
         name: string;
