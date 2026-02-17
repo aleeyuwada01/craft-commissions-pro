@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useServices } from '@/hooks/useServices';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,6 +84,9 @@ export default function POSSystem() {
     const [newCustomerPhone, setNewCustomerPhone] = useState('');
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
 
+    const { user } = useAuth();
+    const [currentEmployee, setCurrentEmployee] = useState<any>(null);
+
     useEffect(() => {
         if (!businessId) return;
         // Fetch customers
@@ -104,6 +108,54 @@ export default function POSSystem() {
                 setBusinessPhone(data?.phone || '08063901258, 08036433830, 09037705244, 09060686086');
             });
     }, [businessId]);
+
+    useEffect(() => {
+        if (!user || !businessId) return;
+
+        const fetchEmployee = async () => {
+            // First try to find employee record for this user in this business
+            const { data, error } = await supabase
+                .from('employees')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('business_id', businessId)
+                .maybeSingle();
+
+            if (data) {
+                setCurrentEmployee(data);
+            } else {
+                // If not found (e.g. owner acting as cashier), we might want to fetch owner profile or just use user metadata
+                // For now, we'll try to get ANY employee record directly linked to user, or fallback
+                // But specifically for commission, we need a valid employee_id record in the business.
+                // If the user is the owner, they might not have an employee record. 
+                // In that case, we can't record commission, but we can still record name.
+                // However, the requested feature is to track *employee* sales.
+                // If the owner records a sale, maybe it shouldn't generate commission?
+                // But we still want "Cashier Name".
+
+                // Let's check if the user is the owner
+                const { data: business } = await supabase
+                    .from('business_units')
+                    .select('user_id')
+                    .eq('id', businessId)
+                    .single();
+
+                if (business && business.user_id === user.id) {
+                    // User is owner. We can either:
+                    // 1. Create a dummy "Owner" employee record? No.
+                    // 2. Just use their name for receipt, send null for employee_id (no commission).
+                    // The backend trigger returns if employee_id is null, which is correct (no commission for owner).
+                    setCurrentEmployee({
+                        id: null,
+                        name: user.user_metadata?.full_name || 'Business Owner',
+                        is_owner: true
+                    });
+                }
+            }
+        };
+
+        fetchEmployee();
+    }, [user, businessId]);
 
     const filteredServices = services.filter(service =>
         service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -216,6 +268,11 @@ export default function POSSystem() {
             return;
         }
 
+        if (!currentEmployee) {
+            toast.error('Employee profile not loaded');
+            return;
+        }
+
         const total = calculateTotal();
         const paid = amountPaid ? parseFloat(amountPaid) : total;
         const balance = Math.max(0, total - paid);
@@ -234,6 +291,7 @@ export default function POSSystem() {
                     business_id: businessId!,
                     sale_number: saleNumber || `SL-${Date.now()}`,
                     customer_id: selectedCustomer?.id || null,
+                    employee_id: currentEmployee.id, // Record the employee who made the sale
                     subtotal: calculateSubtotal(),
                     tax_amount: calculateTax(),
                     discount_amount: calculateDiscount(),
@@ -247,6 +305,33 @@ export default function POSSystem() {
                 .single();
 
             if (saleError) throw saleError;
+
+            // Calculate and record commission (Fallback since DB trigger migration failed)
+            if (currentEmployee.id) {
+                let commissionAmount = 0;
+                if (currentEmployee.commission_type === 'fixed') {
+                    commissionAmount = currentEmployee.fixed_commission || 0;
+                } else {
+                    commissionAmount = (total * (currentEmployee.commission_percentage || 0)) / 100;
+                }
+
+                const houseAmount = total - commissionAmount;
+
+                const { error: transactionError } = await supabase.from('transactions').insert({
+                    business_id: businessId!,
+                    employee_id: currentEmployee.id,
+                    total_amount: total,
+                    commission_amount: commissionAmount,
+                    house_amount: houseAmount,
+                    notes: `Commission for Sale ${sale.sale_number}`,
+                    is_commission_paid: false,
+                });
+
+                if (transactionError) {
+                    console.error('Failed to record commission transaction:', transactionError);
+                    toast.error('Sale recorded but failed to record commission');
+                }
+            }
 
             // Create sale items
             const saleItems = cart.map(item => ({
@@ -285,6 +370,7 @@ export default function POSSystem() {
                 businessAddress,
                 businessPhone,
                 customerName: selectedCustomer?.name || 'Walk-in Customer',
+                cashierName: currentEmployee.name, // Pass the employee/cashier name
                 items: cart.map(item => ({
                     name: item.service.name,
                     quantity: item.quantity,
@@ -607,10 +693,13 @@ export default function POSSystem() {
                                         className="w-full"
                                         size="lg"
                                         onClick={handleCheckout}
+                                        disabled={!currentEmployee}
                                     >
-                                        {amountPaid && parseFloat(amountPaid) < calculateTotal()
-                                            ? `Record Part Payment - ${formatCurrency(parseFloat(amountPaid))}`
-                                            : `Complete Sale - ${formatCurrency(calculateTotal())}`
+                                        {!currentEmployee
+                                            ? 'Loading Employee Profile...'
+                                            : amountPaid && parseFloat(amountPaid) < calculateTotal()
+                                                ? `Record Part Payment - ${formatCurrency(parseFloat(amountPaid))}`
+                                                : `Complete Sale - ${formatCurrency(calculateTotal())}`
                                         }
                                     </Button>
                                     <Button

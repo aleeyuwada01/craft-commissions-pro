@@ -70,6 +70,7 @@ interface SaleRecord {
   payment_status: string;
   created_at: string;
   customers: { name: string } | null;
+  employees: { name: string } | null;
 }
 
 interface DisplayTransaction {
@@ -229,7 +230,9 @@ export default function BusinessDashboard() {
         payment_method,
         payment_status,
         created_at,
-        customers(name)
+        created_at,
+        customers(name),
+        employees(name)
       `)
       .eq('business_id', id)
       .order('created_at', { ascending: false });
@@ -257,7 +260,7 @@ export default function BusinessDashboard() {
       total_amount: Number(s.total_amount),
       created_at: s.created_at,
       label: s.customers?.name || 'Walk-in Customer',
-      sublabel: `POS Sale #${s.sale_number}`,
+      sublabel: `POS Sale #${s.sale_number} • ${s.employees?.name || 'Unknown Staff'}`,
       payment_status: s.payment_status,
     }));
 
@@ -706,8 +709,8 @@ export default function BusinessDashboard() {
                         <div className="flex items-center gap-2">
                           <p className="font-medium">{txn.label}</p>
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${txn.type === 'pos'
-                              ? 'bg-blue-500/10 text-blue-600'
-                              : 'bg-purple-500/10 text-purple-600'
+                            ? 'bg-blue-500/10 text-blue-600'
+                            : 'bg-purple-500/10 text-purple-600'
                             }`}>
                             {txn.type === 'pos' ? 'POS' : 'Commission'}
                           </span>

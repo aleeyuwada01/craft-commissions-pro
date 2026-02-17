@@ -61,6 +61,7 @@ interface Transaction {
   house_amount: number;
   is_commission_paid: boolean;
   created_at: string;
+  notes: string | null;
   services: { name: string } | null;
 }
 
@@ -117,6 +118,7 @@ export default function EmployeeDashboard() {
             house_amount,
             is_commission_paid,
             created_at,
+            notes,
             services(name)
           `)
           .eq('employee_id', employeeData.id)
@@ -500,7 +502,7 @@ export default function EmployeeDashboard() {
                         <TableCell className="text-sm">
                           {format(new Date(txn.created_at), 'MMM d, yyyy')}
                         </TableCell>
-                        <TableCell>{txn.services?.name || '-'}</TableCell>
+                        <TableCell>{txn.services?.name || txn.notes || '-'}</TableCell>
                         <TableCell className="text-right">
                           {formatCurrency(Number(txn.total_amount))}
                         </TableCell>
