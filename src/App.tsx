@@ -22,7 +22,6 @@ import SalesHistory from "@/pages/SalesHistory";
 import EmployeeContracts from "@/pages/EmployeeContracts";
 import ViewContract from "@/pages/ViewContract";
 import NewContract from "@/pages/NewContract";
-import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
 import Debtors from "@/pages/Debtors";
 
@@ -49,22 +48,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 // Smart home route that detects if user is admin or employee
 function SmartHome() {
   const { user, loading } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
   const [isEmployee, setIsEmployee] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Wait for auth and roles to load
-    if (loading || roleLoading) return;
+    // If still loading auth, wait
+    if (loading) return;
 
+    // If no user, redirect will happen below - no need to check roles
     if (!user) {
-      setChecking(false);
-      return;
-    }
-
-    // If global admin, skip business owner checks
-    if (isAdmin) {
-      setIsEmployee(false);
       setChecking(false);
       return;
     }
@@ -116,10 +108,6 @@ function SmartHome() {
     return <EmployeeDashboard />;
   }
 
-  if (isAdmin) {
-    return <AdminDashboard />;
-  }
-
   return (
     <DashboardLayout>
       <Dashboard />
@@ -150,14 +138,6 @@ function AppRoutes() {
       <Route
         path="/"
         element={<SmartHome />}
-      />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
       />
       <Route
         path="/my-commissions"
