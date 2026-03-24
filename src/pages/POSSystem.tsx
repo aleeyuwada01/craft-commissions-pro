@@ -83,6 +83,7 @@ export default function POSSystem() {
     const [newCustomerName, setNewCustomerName] = useState('');
     const [newCustomerPhone, setNewCustomerPhone] = useState('');
     const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+    const [isCheckout, setIsCheckout] = useState(false);
 
     const { user } = useAuth();
     const [currentEmployee, setCurrentEmployee] = useState<any>(null);
@@ -273,10 +274,14 @@ export default function POSSystem() {
             return;
         }
 
+        if (isCheckout) return;
+
         const total = calculateTotal();
         const paid = amountPaid ? parseFloat(amountPaid) : total;
         const balance = Math.max(0, total - paid);
         const paymentStatus = balance > 0 ? 'partial' : 'completed';
+
+        setIsCheckout(true);
 
         try {
             // Generate sale number
@@ -328,7 +333,6 @@ export default function POSSystem() {
                 });
 
                 if (transactionError) {
-                    console.error('Failed to record commission transaction:', transactionError);
                     toast.error('Sale recorded but failed to record commission');
                 }
             }
@@ -394,8 +398,9 @@ export default function POSSystem() {
             clearCart();
 
         } catch (error: any) {
-            console.error('Checkout error:', error);
             toast.error('Failed to complete sale: ' + error.message);
+        } finally {
+            setIsCheckout(false);
         }
     };
 
@@ -693,10 +698,12 @@ export default function POSSystem() {
                                         className="w-full"
                                         size="lg"
                                         onClick={handleCheckout}
-                                        disabled={!currentEmployee}
+                                        disabled={!currentEmployee || isCheckout}
                                     >
                                         {!currentEmployee
                                             ? 'Loading Employee Profile...'
+                                            : isCheckout
+                                                ? 'Processing Payment...'
                                             : amountPaid && parseFloat(amountPaid) < calculateTotal()
                                                 ? `Record Part Payment - ${formatCurrency(parseFloat(amountPaid))}`
                                                 : `Complete Sale - ${formatCurrency(calculateTotal())}`
@@ -706,6 +713,7 @@ export default function POSSystem() {
                                         variant="outline"
                                         className="w-full"
                                         onClick={clearCart}
+                                        disabled={isCheckout}
                                     >
                                         Clear Cart
                                     </Button>

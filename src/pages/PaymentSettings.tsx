@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +14,9 @@ import { ArrowLeft, CreditCard, Save } from 'lucide-react';
 
 export default function PaymentSettings() {
     const { id: businessId } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const { isAdmin, loading: roleLoading } = useUserRole();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -23,11 +28,26 @@ export default function PaymentSettings() {
     const [paystackEnabled, setPaystackEnabled] = useState(false);
 
     useEffect(() => {
+        if (roleLoading) return;
         fetchPaymentSettings();
-    }, [businessId]);
+    }, [businessId, roleLoading, isAdmin]);
 
     const fetchPaymentSettings = async () => {
-        if (!businessId) return;
+        if (!businessId || !user) return;
+
+        // Check ownership/admin access
+        const { data: businessData } = await supabase
+            .from('business_units')
+            .select('user_id')
+            .eq('id', businessId)
+            .maybeSingle();
+
+        if (businessData) {
+            if (businessData.user_id !== user.id && !isAdmin) {
+                navigate('/');
+                return;
+            }
+        }
 
         const { data, error } = await supabase
             .from('payment_settings')
@@ -36,7 +56,7 @@ export default function PaymentSettings() {
             .single();
 
         if (error && error.code !== 'PGRST116') {
-            console.error(error);
+            // Silently ignore or handle specific error
         } else if (data) {
             setBankName(data.bank_name || '');
             setAccountNumber(data.account_number || '');

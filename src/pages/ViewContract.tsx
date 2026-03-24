@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { TerminateContractButton } from '@/components/contracts/TerminateContractButton';
 
 interface Contract {
@@ -64,6 +65,7 @@ export default function ViewContract() {
     const { id: businessId, contractId } = useParams<{ id: string; contractId: string }>();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { isAdmin, loading: roleLoading } = useUserRole();
     const [contract, setContract] = useState<Contract | null>(null);
     const [loading, setLoading] = useState(true);
     const [signDialogOpen, setSignDialogOpen] = useState(false);
@@ -74,7 +76,8 @@ export default function ViewContract() {
     const signaturePadRef = useRef<SignatureCanvas>(null);
 
     // Derived state to avoid sync issues
-    const isEmployeeView = contract?.employees?.user_id === user?.id;
+    // A user is in employee view if they are the contract subject AND NOT an admin
+    const isEmployeeView = contract?.employees?.user_id === user?.id && !isAdmin;
 
     const fetchContract = async () => {
         if (!contractId) return;
@@ -91,7 +94,6 @@ export default function ViewContract() {
 
         if (error) {
             toast.error('Failed to load contract');
-            console.error(error);
             navigate(`/business/${businessId}/contracts`);
         } else {
             setContract(data);
@@ -171,7 +173,7 @@ export default function ViewContract() {
         }
     };
 
-    if (loading) {
+    if (loading || roleLoading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="animate-pulse text-muted-foreground">Loading...</div>

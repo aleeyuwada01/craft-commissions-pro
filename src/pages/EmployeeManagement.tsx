@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,6 +65,9 @@ const passwordSchema = z.string().min(6, 'Password must be at least 6 characters
 
 export default function EmployeeManagement() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [business, setBusiness] = useState<{ name: string } | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -99,11 +104,17 @@ export default function EmployeeManagement() {
 
     const { data: businessData } = await supabase
       .from('business_units')
-      .select('name')
+      .select('name, user_id')
       .eq('id', id)
       .single();
 
-    if (businessData) setBusiness(businessData);
+    if (businessData) {
+      if (businessData.user_id !== user?.id && !isAdmin) {
+        navigate('/');
+        return;
+      }
+      setBusiness(businessData);
+    }
 
     const { data: employeesData } = await supabase
       .from('employees')
@@ -133,8 +144,9 @@ export default function EmployeeManagement() {
   };
 
   useEffect(() => {
+    if (roleLoading) return;
     fetchData();
-  }, [id]);
+  }, [id, roleLoading, isAdmin]);
 
   const resetForm = () => {
     setName('');

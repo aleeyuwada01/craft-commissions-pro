@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useEmployee } from '@/hooks/useEmployee';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +24,7 @@ import {
     DollarSign,
     Receipt,
     User,
+    Printer,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 
@@ -44,14 +47,31 @@ type StatusFilter = 'all' | 'completed' | 'pending' | 'partial' | 'refunded';
 export default function SalesHistory() {
     const { id: businessId } = useParams<{ id: string }>();
     const { user } = useAuth();
+    const { isAdmin } = useUserRole();
     const [isOwner, setIsOwner] = useState(false);
+    const { employeeId, loading: employeeLoading } = useEmployee(businessId);
     const [sales, setSales] = useState<Sale[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
     const fetchSales = async () => {
-        if (!businessId) return;
+        if (!businessId) {
+            setLoading(false);
+            return;
+        }
+        
+        // If we're waiting for employee profile and not admin, keep loading but don't fetch yet
+        if (!isAdmin && employeeLoading) {
+            return;
+        }
+
+        // If not admin and no employeeId after loading finished, we can't fetch sales
+        if (!isAdmin && !employeeId && !employeeLoading) {
+            setSales([]);
+            setLoading(false);
+            return;
+        }
 
         let query = supabase
             .from('sales')
@@ -67,11 +87,15 @@ export default function SalesHistory() {
             query = query.eq('payment_status', statusFilter);
         }
 
+        // Apply data isolation for employees
+        if (!isAdmin && employeeId) {
+            query = query.eq('employee_id', employeeId);
+        }
+
         const { data, error } = await query;
 
         if (error) {
             toast.error('Failed to load sales');
-            console.error(error);
         } else {
             setSales(data || []);
         }
@@ -79,20 +103,25 @@ export default function SalesHistory() {
     };
 
     useEffect(() => {
-        if (!user || !businessId) return;
-        const checkOwner = async () => {
-            const { data } = await supabase
-                .from('business_units')
-                .select('user_id')
-                .eq('id', businessId)
-                .single();
-            setIsOwner(data?.user_id === user.id);
-        };
-        checkOwner();
+        if (user && businessId) {
+            const checkOwner = async () => {
+                const { data } = await supabase
+                    .from('business_units')
+                    .select('user_id')
+                    .eq('id', businessId)
+                    .single();
+                setIsOwner(data?.user_id === user.id);
+            };
+            checkOwner();
+        }
     }, [user, businessId]);
 
     useEffect(() => {
         fetchSales();
+    }, [businessId, isAdmin, employeeId, employeeLoading, statusFilter]);
+
+    useEffect(() => {
+        if (!businessId) return;
 
         // Setup realtime subscription
         const channel = supabase
@@ -114,7 +143,7 @@ export default function SalesHistory() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [businessId, statusFilter]);
+    }, [businessId]);
 
     const filteredSales = sales.filter(sale =>
         sale.sale_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -151,6 +180,108 @@ export default function SalesHistory() {
         return <DollarSign className="w-4 h-4" />;
     };
 
+    const handlePrintReceipt = (sale: SaleRecord) => {
+        const receiptWindow = window.open('', '_blank');
+        if (!receiptWindow) {
+            toast.error('Please allow popups to print receipts');
+            return;
+        }
+
+        const date = new Date(sale.created_at).toLocaleString();
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Receipt - ${sale.sale_number}</title>
+                <style>
+                    body {
+                        font-family: monospace;
+                        padding: 20px;
+                        max-width: 300px;
+                        margin: 0 auto;
+                    }
+                    .header {
+                        text-align: center;
+                        margin-bottom: 20px;
+                        border-bottom: 1px dashed #000;
+                        padding-bottom: 10px;
+                    }
+                    .row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 5px;
+                    }
+                    .total {
+                        font-weight: bold;
+                        border-top: 1px dashed #000;
+                        padding-top: 10px;
+                        margin-top: 10px;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 20px;
+                        font-size: 12px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>RECEIPT</h2>
+                    <p>Sale #${sale.sale_number}</p>
+                    <p>${date}</p>
+                </div>
+                
+                ${sale.customers ? `<div class="row"><span>Customer:</span><span>${sale.customers.name}</span></div>` : ''}
+                <div class="row"><span>Cashier:</span><span>${sale.employees?.name || 'Admin'}</span></div>
+                
+                <div style="margin: 20px 0; border-bottom: 1px dashed #000;"></div>
+                
+                <div class="row">
+                    <span>Subtotal</span>
+                    <span>${formatCurrency(sale.total_amount + sale.discount_amount - sale.tax_amount)}</span>
+                </div>
+                ${sale.tax_amount > 0 ? `
+                <div class="row">
+                    <span>Tax</span>
+                    <span>${formatCurrency(sale.tax_amount)}</span>
+                </div>` : ''}
+                ${sale.discount_amount > 0 ? `
+                <div class="row">
+                    <span>Discount</span>
+                    <span>-${formatCurrency(sale.discount_amount)}</span>
+                </div>` : ''}
+                
+                <div class="row total">
+                    <span>TOTAL</span>
+                    <span>${formatCurrency(sale.total_amount)}</span>
+                </div>
+                
+                <div class="row" style="margin-top: 10px;">
+                    <span>Payment Method</span>
+                    <span style="text-transform: capitalize;">${sale.payment_method}</span>
+                </div>
+                <div class="row">
+                    <span>Status</span>
+                    <span style="text-transform: capitalize;">${sale.payment_status}</span>
+                </div>
+
+                <div class="footer">
+                    <p>Thank you for your business!</p>
+                </div>
+                <script>
+                    window.onload = () => {
+                        window.print();
+                        setTimeout(() => window.close(), 500);
+                    };
+                </script>
+            </body>
+            </html>
+        `;
+
+        receiptWindow.document.write(html);
+        receiptWindow.document.close();
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -168,7 +299,7 @@ export default function SalesHistory() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link to={isOwner ? `/business/${businessId}` : '/'}>
+                    <Link to={(isOwner || isAdmin) ? `/business/${businessId}` : '/'}>
                         <Button variant="ghost" size="icon">
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
@@ -311,6 +442,15 @@ export default function SalesHistory() {
                                                 -{formatCurrency(sale.discount_amount)} discount
                                             </p>
                                         )}
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="mt-2"
+                                            onClick={() => handlePrintReceipt(sale)}
+                                        >
+                                            <Printer className="w-4 h-4 mr-2" />
+                                            Print
+                                        </Button>
                                     </div>
                                 </div>
                             </CardContent>

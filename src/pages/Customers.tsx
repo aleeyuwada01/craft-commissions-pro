@@ -105,12 +105,16 @@ export default function Customers() {
         setDialogOpen(true);
     };
 
+    const [saving, setSaving] = useState(false);
+
     const handleSave = async () => {
         if (!name.trim()) {
             toast.error('Name is required');
             return;
         }
+        if (saving) return;
 
+        setSaving(true);
         try {
             if (editing) {
                 const { error } = await supabase
@@ -231,8 +235,8 @@ export default function Customers() {
                                     placeholder="Additional notes"
                                 />
                             </div>
-                            <Button className="w-full" onClick={handleSave}>
-                                {editing ? 'Update Customer' : 'Add Customer'}
+                            <Button className="w-full" onClick={handleSave} disabled={saving}>
+                                {saving ? 'Saving...' : editing ? 'Update Customer' : 'Add Customer'}
                             </Button>
                         </div>
                     </DialogContent>

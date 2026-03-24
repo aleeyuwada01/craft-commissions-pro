@@ -101,7 +101,7 @@ export default function GlobalSettings() {
         setAvatarUrl(data.avatar_url || '');
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      // Error handled by loading state
     } finally {
       setLoading(false);
     }

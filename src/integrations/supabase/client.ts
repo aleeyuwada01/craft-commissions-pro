@@ -5,10 +5,6 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Debug: log env vars (remove in production)
-console.log('Supabase URL:', SUPABASE_URL);
-console.log('Supabase Key exists:', !!SUPABASE_PUBLISHABLE_KEY);
-
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   console.error('Missing Supabase environment variables!');
 }

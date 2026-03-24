@@ -146,17 +146,17 @@ export default function EmployeeContracts() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link to={isOwner ? `/business/${businessId}` : '/employee'}>
+                    <Link to={(isOwner || isAdmin) ? `/business/${businessId}` : '/employee'}>
                         <Button variant="ghost" size="icon">
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold">
-                            {isOwner ? 'Employee Contracts' : 'My Contracts'}
+                            {(isOwner || isAdmin) ? 'Employee Contracts' : 'My Contracts'}
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            {contracts.length} {isOwner ? 'total contracts' : 'contract(s)'}
+                            {contracts.length} {(isOwner || isAdmin) ? 'total contracts' : 'contract(s)'}
                         </p>
                     </div>
                 </div>
@@ -180,7 +180,7 @@ export default function EmployeeContracts() {
                         <p className="text-muted-foreground">
                             {isOwner ? 'No contracts found' : 'No contracts assigned to you yet'}
                         </p>
-                        {isOwner && (
+                        {(isOwner || isAdmin) && (
                             <Link to={`/business/${businessId}/contracts/new`}>
                                 <Button className="mt-4">
                                     <Plus className="w-4 h-4 mr-2" />
@@ -258,7 +258,7 @@ export default function EmployeeContracts() {
                                             View
                                         </Button>
                                     </Link>
-                                    {isOwner && contract.status === 'draft' && (
+                                    {(isOwner || isAdmin) && contract.status === 'draft' && (
                                         <Link
                                             to={`/business/${businessId}/contracts/${contract.id}/edit`}
                                             className="flex-1"

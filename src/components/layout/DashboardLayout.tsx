@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
-import { useBusinessUnits } from '@/hooks/useBusinessUnits';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useBusinessContext } from '@/contexts/BusinessContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -50,13 +52,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
-  const { businessUnits } = useBusinessUnits();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { businessUnits } = useBusinessContext();
   const { theme, setTheme } = useTheme();
   const [isEmployeeOnly, setIsEmployeeOnly] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || roleLoading) return;
     const checkRole = async () => {
+      if (isAdmin) {
+        setIsEmployeeOnly(false);
+        return;
+      }
       const { count } = await supabase
         .from('business_units')
         .select('*', { count: 'exact', head: true })
@@ -218,17 +225,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <span>Debtors</span>
                       </Link>
                       <Link
-                        to={`/business/${unit.id}/employees`}
-                        onClick={() => setSheetOpen(false)}
-                        className={cn(
-                          'sidebar-item text-sm py-2',
-                          location.pathname === `/business/${unit.id}/employees` && 'sidebar-item-active'
-                        )}
-                      >
-                        <Users className="w-4 h-4" />
-                        <span>Employees</span>
-                      </Link>
-                      <Link
                         to={`/business/${unit.id}/contracts`}
                         onClick={() => setSheetOpen(false)}
                         className={cn(
@@ -239,17 +235,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <FileSignature className="w-4 h-4" />
                         <span>Contracts</span>
                       </Link>
-                      <Link
-                        to={`/business/${unit.id}/settings`}
-                        onClick={() => setSheetOpen(false)}
-                        className={cn(
-                          'sidebar-item text-sm py-2',
-                          location.pathname === `/business/${unit.id}/settings` && 'sidebar-item-active'
-                        )}
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span>Settings</span>
-                      </Link>
+                      {!isEmployeeOnly && (
+                        <>
+                          <Link
+                            to={`/business/${unit.id}/employees`}
+                            onClick={() => setSheetOpen(false)}
+                            className={cn(
+                              'sidebar-item text-sm py-2',
+                              location.pathname === `/business/${unit.id}/employees` && 'sidebar-item-active'
+                            )}
+                          >
+                            <Users className="w-4 h-4" />
+                            <span>Employees</span>
+                          </Link>
+                          <Link
+                            to={`/business/${unit.id}/settings`}
+                            onClick={() => setSheetOpen(false)}
+                            className={cn(
+                              'sidebar-item text-sm py-2',
+                              location.pathname === `/business/${unit.id}/settings` && 'sidebar-item-active'
+                            )}
+                          >
+                            <Settings className="w-4 h-4" />
+                            <span>Settings</span>
+                          </Link>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

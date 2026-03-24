@@ -87,7 +87,7 @@ export default function AdminDashboard() {
                 .maybeSingle();
 
             if (error) {
-                console.error('AdminDashboard: Error checking system settings:', error);
+                // Error handled by logic or silently ignored
             }
 
             if (data) {
@@ -96,7 +96,7 @@ export default function AdminDashboard() {
                 setIsResetEnabled(isEnabled);
             }
         } catch (error) {
-            console.error('Failed to check system settings:', error);
+            // Silently handled
         }
     };
 

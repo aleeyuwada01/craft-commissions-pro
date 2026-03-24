@@ -99,7 +99,7 @@ export function SaleRecordDialog({
   const hasNoServices = !servicesLoading && services.length === 0;
 
   const handleSubmit = async () => {
-    if (!isValid || !commissionPreview) return;
+    if (!isValid || !commissionPreview || submitting) return;
 
     setSubmitting(true);
 

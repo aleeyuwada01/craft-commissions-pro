@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useBusinessContext } from '@/contexts/BusinessContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -164,6 +166,8 @@ export default function BusinessSettings() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { deleteBusinessUnit, refresh: refreshBusinesses } = useBusinessContext();
   const [business, setBusiness] = useState<{ name: string; color: string; type: string } | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -195,7 +199,7 @@ export default function BusinessSettings() {
       .maybeSingle();
 
     if (businessData) {
-      if (businessData.user_id !== user?.id) {
+      if (businessData.user_id !== user?.id && !isAdmin) {
         navigate('/');
         return;
       }
@@ -216,8 +220,9 @@ export default function BusinessSettings() {
   };
 
   useEffect(() => {
+    if (roleLoading) return;
     fetchData();
-  }, [id]);
+  }, [id, roleLoading, isAdmin]);
 
   const handleUpdateBusiness = async () => {
     if (!businessName.trim()) {
@@ -236,6 +241,7 @@ export default function BusinessSettings() {
       toast.error('Failed to update business');
     } else {
       toast.success('Business updated');
+      refreshBusinesses(); // Sync sidebar/context
       fetchData();
     }
 
@@ -247,10 +253,7 @@ export default function BusinessSettings() {
       return;
     }
 
-    const { error } = await supabase
-      .from('business_units')
-      .delete()
-      .eq('id', id);
+    const { error } = await deleteBusinessUnit(id || '');
 
     if (error) {
       toast.error('Failed to delete business');

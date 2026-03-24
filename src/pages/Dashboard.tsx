@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useBusinessUnits } from '@/hooks/useBusinessUnits';
+import { useBusinessContext } from '@/contexts/BusinessContext';
 import { formatCurrency } from '@/lib/currency';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,7 +67,7 @@ interface Transaction {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { businessUnits, loading: businessLoading } = useBusinessUnits();
+  const { businessUnits, loading: businessLoading } = useBusinessContext();
   const [stats, setStats] = useState<DashboardStats>({
     totalRevenue: 0,
     totalCommissions: 0,

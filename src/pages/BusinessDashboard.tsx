@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { logActivity } from '@/hooks/useActivityLog';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useEmployee } from '@/hooks/useEmployee';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -104,6 +106,8 @@ export default function BusinessDashboard() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isAdmin } = useUserRole();
+  const { employeeId, loading: employeeLoading } = useEmployee(id);
   const [business, setBusiness] = useState<{ name: string; type: string; color: string } | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -147,7 +151,23 @@ export default function BusinessDashboard() {
   };
 
   const fetchData = async () => {
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    // Wait for employee profile if not admin
+    if (!isAdmin && employeeLoading) {
+      return;
+    }
+
+    // If not admin and no employeeId after loading finished, we can't fetch transactional data
+    if (!isAdmin && !employeeId && !employeeLoading) {
+      setTransactions([]);
+      setSales([]);
+      setLoading(false);
+      return;
+    }
 
     // Fetch business details
     const { data: businessData } = await supabase
@@ -157,10 +177,6 @@ export default function BusinessDashboard() {
       .single();
 
     if (businessData) {
-      if (businessData.user_id !== user?.id) {
-        navigate('/');
-        return;
-      }
       setBusiness(businessData);
     }
 
@@ -196,6 +212,11 @@ export default function BusinessDashboard() {
       `)
       .eq('business_id', id)
       .order('created_at', { ascending: false });
+
+    // Data isolation
+    if (!isAdmin && employeeId) {
+      query = query.eq('employee_id', employeeId);
+    }
 
     const dateFilter = getDateFilter();
     if (dateFilter) {
@@ -239,12 +260,16 @@ export default function BusinessDashboard() {
         payment_method,
         payment_status,
         created_at,
-        created_at,
         customers(name),
         employees(name)
       `)
       .eq('business_id', id)
       .order('created_at', { ascending: false });
+
+    // Data isolation
+    if (!isAdmin && employeeId) {
+      salesQuery = salesQuery.eq('employee_id', employeeId);
+    }
 
     if (dateFilter) {
       salesQuery = salesQuery.gte('created_at', dateFilter);
@@ -292,17 +317,25 @@ export default function BusinessDashboard() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const { data: todayData } = await supabase
+    let todayTxnQuery = supabase
       .from('transactions')
       .select('total_amount, commission_amount')
       .eq('business_id', id)
       .gte('created_at', todayStart.toISOString());
 
-    const { data: todaySalesData } = await supabase
+    let todaySalesQuery = supabase
       .from('sales')
       .select('total_amount')
       .eq('business_id', id)
       .gte('created_at', todayStart.toISOString());
+
+    if (!isAdmin && employeeId) {
+      todayTxnQuery = todayTxnQuery.eq('employee_id', employeeId);
+      todaySalesQuery = todaySalesQuery.eq('employee_id', employeeId);
+    }
+
+    const { data: todayData } = await todayTxnQuery;
+    const { data: todaySalesData } = await todaySalesQuery;
 
     const todayCommRevenue = (todayData || []).reduce((sum, t) => sum + Number(t.total_amount), 0);
     const todaySalesRevenue = (todaySalesData || []).reduce((sum, s) => sum + Number(s.total_amount), 0);
@@ -351,7 +384,7 @@ export default function BusinessDashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id, timeFilter]);
+  }, [id, timeFilter, isAdmin, employeeId, employeeLoading]);
 
   const handleServiceChange = (serviceId: string) => {
     setSelectedService(serviceId);
@@ -362,6 +395,8 @@ export default function BusinessDashboard() {
   };
 
   const handleRecordSale = async () => {
+    if (isRecording) return;
+    
     if (!selectedEmployee || !selectedService || !saleAmount) {
       toast.error('Please fill in all fields');
       return;

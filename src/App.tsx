@@ -121,12 +121,9 @@ function SmartHome() {
 }
 
 function AppRoutes() {
-  console.log('AppRoutes: Rendering...');
   const { user, loading } = useAuth();
-  console.log('AppRoutes: useAuth returned - loading:', loading, 'user:', !!user);
 
   if (loading) {
-    console.log('AppRoutes: Showing loading state');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -267,16 +264,19 @@ function AppRoutes() {
   );
 }
 
+import { BusinessProvider } from "@/contexts/BusinessContext";
+
 const App = () => {
-  console.log('App: Rendering...');
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <BusinessProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </BusinessProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>
