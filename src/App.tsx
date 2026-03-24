@@ -49,6 +49,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function SmartHome() {
   const { user, loading } = useAuth();
   const [isEmployee, setIsEmployee] = useState<boolean | null>(null);
+  const [employeeBusinessId, setEmployeeBusinessId] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -71,7 +72,7 @@ function SmartHome() {
       // Check if user is an employee
       const { data: employeeData } = await supabase
         .from('employees')
-        .select('id')
+        .select('id, business_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -81,6 +82,7 @@ function SmartHome() {
         setIsEmployee(false);
       } else if (employeeData) {
         setIsEmployee(true);
+        setEmployeeBusinessId(employeeData.business_id);
       } else {
         // New user with no businesses or employee record - show admin dashboard
         setIsEmployee(false);
@@ -105,6 +107,9 @@ function SmartHome() {
   }
 
   if (isEmployee) {
+    if (employeeBusinessId) {
+      return <Navigate to={`/business/${employeeBusinessId}/pos`} replace />;
+    }
     return <EmployeeDashboard />;
   }
 

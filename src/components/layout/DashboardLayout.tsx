@@ -52,6 +52,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { signOut, user } = useAuth();
   const { businessUnits } = useBusinessUnits();
   const { theme, setTheme } = useTheme();
+  const [isEmployeeOnly, setIsEmployeeOnly] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const checkRole = async () => {
+      const { count } = await supabase
+        .from('business_units')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      if (count === 0) {
+        const { data } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (data) setIsEmployeeOnly(true);
+      }
+    };
+    checkRole();
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -88,38 +108,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span>Dashboard</span>
           </Link>
 
-          <Link
-            to="/reports"
-            onClick={() => setSheetOpen(false)}
-            className={cn('sidebar-item', isActive('/reports') && 'sidebar-item-active')}
-          >
-            <FileText className="w-5 h-5" />
-            <span>Reports</span>
-          </Link>
+          {!isEmployeeOnly && (
+            <>
+              <Link
+                to="/reports"
+                onClick={() => setSheetOpen(false)}
+                className={cn('sidebar-item', isActive('/reports') && 'sidebar-item-active')}
+              >
+                <FileText className="w-5 h-5" />
+                <span>Reports</span>
+              </Link>
 
-          <Link
-            to="/settings"
-            onClick={() => setSheetOpen(false)}
-            className={cn('sidebar-item', isActive('/settings') && 'sidebar-item-active')}
-          >
-            <Settings className="w-5 h-5" />
-            <span>Settings</span>
-          </Link>
+              <Link
+                to="/settings"
+                onClick={() => setSheetOpen(false)}
+                className={cn('sidebar-item', isActive('/settings') && 'sidebar-item-active')}
+              >
+                <Settings className="w-5 h-5" />
+                <span>Settings</span>
+              </Link>
+            </>
+          )}
 
           <Separator className="my-4 bg-sidebar-border" />
 
-          <div className="px-4 py-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider">
-              Businesses
-            </span>
-            <Link
-              to="/business/new"
-              onClick={() => setSheetOpen(false)}
-              className="w-6 h-6 rounded-lg bg-sidebar-accent flex items-center justify-center hover:bg-sidebar-primary/20 transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5 text-sidebar-foreground/70" />
-            </Link>
-          </div>
+          {!isEmployeeOnly && (
+            <div className="px-4 py-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider">
+                Businesses
+              </span>
+              <Link
+                to="/business/new"
+                onClick={() => setSheetOpen(false)}
+                className="w-6 h-6 rounded-lg bg-sidebar-accent flex items-center justify-center hover:bg-sidebar-primary/20 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5 text-sidebar-foreground/70" />
+              </Link>
+            </div>
+          )}
 
           <div className="space-y-1">
             {businessUnits.map((unit) => {
@@ -230,7 +256,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               );
             })}
 
-            {businessUnits.length === 0 && (
+            {businessUnits.length === 0 && !isEmployeeOnly && (
               <div className="px-4 py-6 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-sidebar-accent mx-auto mb-3 flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-sidebar-foreground/40" />
@@ -292,11 +318,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 
-  // Mobile bottom navigation items
   const mobileNavItems = [
     { path: '/', icon: LayoutDashboard, label: 'Home' },
-    { path: '/reports', icon: FileText, label: 'Reports' },
-    { path: '/business/new', icon: Plus, label: 'Add' },
+    ...(!isEmployeeOnly ? [
+      { path: '/reports', icon: FileText, label: 'Reports' },
+      { path: '/business/new', icon: Plus, label: 'Add' },
+    ] : [])
   ];
 
   return (

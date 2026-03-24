@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { logActivity } from '@/hooks/useActivityLog';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -101,6 +102,8 @@ type TimeFilter = 'today' | 'week' | 'month' | 'all';
 
 export default function BusinessDashboard() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [business, setBusiness] = useState<{ name: string; type: string; color: string } | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -149,11 +152,17 @@ export default function BusinessDashboard() {
     // Fetch business details
     const { data: businessData } = await supabase
       .from('business_units')
-      .select('name, type, color')
+      .select('name, type, color, user_id')
       .eq('id', id)
       .single();
 
-    if (businessData) setBusiness(businessData);
+    if (businessData) {
+      if (businessData.user_id !== user?.id) {
+        navigate('/');
+        return;
+      }
+      setBusiness(businessData);
+    }
 
     // Fetch employees
     const { data: employeesData } = await supabase

@@ -266,16 +266,18 @@ export default function EmployeeDashboard() {
                 POS
               </Button>
             </Link>
+            <Link to={`/business/${employee.business_id}/sales`}>
+              <Button variant="outline" size="sm">
+                <Receipt className="w-4 h-4 mr-1" />
+                Sales History
+              </Button>
+            </Link>
             <Link to={`/business/${employee.business_id}/contracts`}>
               <Button variant="outline" size="sm">
                 <FileText className="w-4 h-4 mr-1" />
                 Contracts
               </Button>
             </Link>
-            <Button size="sm" onClick={() => setSaleDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-1" />
-              Record Sale
-            </Button>
             <Button variant="outline" size="sm" onClick={signOut}>
               Sign Out
             </Button>
@@ -299,235 +301,23 @@ export default function EmployeeDashboard() {
         <div>
           <p className="text-muted-foreground text-sm">Welcome,</p>
           <h2 className="text-2xl font-bold text-foreground">{employee.name}</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Commission: {employee.commission_type === 'fixed'
-              ? formatCurrency(employee.fixed_commission) + ' per sale'
-              : employee.commission_percentage + '%'}
-          </p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-          <Card className="stat-card">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center">
-                  <Wallet className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Earnings</p>
-                  <p className="text-lg font-bold text-foreground">
-                    {formatCurrency(stats.totalEarnings)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">This Month</p>
-                  <p className="text-lg font-bold text-foreground">
-                    {formatCurrency(stats.thisMonthEarnings)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Pending</p>
-                  <p className="text-lg font-bold text-warning">
-                    {formatCurrency(stats.unpaidCommissions)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Received</p>
-                  <p className="text-lg font-bold text-success">
-                    {formatCurrency(stats.paidCommissions)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Target className="w-5 h-5 text-primary" />
-                Weekly Earnings
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={weeklyData}>
-                    <defs>
-                      <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '0.5rem',
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="earnings"
-                      stroke="hsl(var(--primary))"
-                      fill="url(#colorEarnings)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                Monthly Performance
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        name === 'earnings' ? formatCurrency(value) : value,
-                        name === 'earnings' ? 'Earnings' : 'Sales'
-                      ]}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '0.5rem',
-                      }}
-                    />
-                    <Bar dataKey="earnings" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sales Summary */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-primary">{stats.totalSales}</p>
-              <p className="text-sm text-muted-foreground">Total Sales</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-success/5 border-success/20">
-            <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-success">{stats.thisMonthSales}</p>
-              <p className="text-sm text-muted-foreground">This Month</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Transaction History */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Commission History
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {transactions.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-14 h-14 rounded-2xl bg-secondary mx-auto mb-4 flex items-center justify-center">
-                  <Sparkles className="w-7 h-7 text-muted-foreground" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">No sales yet</h3>
-                <p className="text-sm text-muted-foreground">
-                  Your commissions will appear here once you make sales
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Service</TableHead>
-                      <TableHead className="text-right">Sale</TableHead>
-                      <TableHead className="text-right">Commission</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.slice(0, 20).map((txn) => (
-                      <TableRow key={txn.id}>
-                        <TableCell className="text-sm">
-                          {format(new Date(txn.created_at), 'MMM d, yyyy')}
-                        </TableCell>
-                        <TableCell>{txn.services?.name || txn.notes || '-'}</TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(Number(txn.total_amount))}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-primary">
-                          {formatCurrency(Number(txn.commission_amount))}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {txn.is_commission_paid ? (
-                            <Badge className="bg-success/10 text-success hover:bg-success/20">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Paid
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-warning/10 text-warning">
-                              <Clock className="w-3 h-3 mr-1" />
-                              Pending
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+          <CardContent className="p-12 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 mx-auto flex items-center justify-center">
+              <ShoppingCart className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold text-foreground">Ready to record sales?</h3>
+            <p className="text-muted-foreground">
+              Please navigate to the POS page or Sales History using the buttons above.
+            </p>
+            <Link to={`/business/${employee.business_id}/pos`}>
+              <Button className="mt-4">
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                Open Point of Sale
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </main>

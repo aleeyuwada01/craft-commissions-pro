@@ -411,7 +411,7 @@ export default function POSSystem() {
         <div className="max-w-7xl mx-auto space-y-4">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <Link to={`/business/${businessId}`}>
+                <Link to={currentEmployee?.is_owner ? `/business/${businessId}` : '/'}>
                     <Button variant="ghost" size="icon">
                         <ArrowLeft className="w-5 h-5" />
                     </Button>

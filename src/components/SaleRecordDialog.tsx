@@ -106,7 +106,61 @@ export function SaleRecordDialog({
     try {
       const amount = parseFloat(saleAmount);
 
-      // Insert transaction (Requirements 1.3, 3.1)
+      // 1. Generate sale number
+      const { data: saleNumber } = await supabase.rpc('generate_sale_number', {
+        p_business_id: businessId,
+      });
+
+      // 2. Insert into sales
+      const { data: sale, error: saleError } = await supabase
+        .from('sales')
+        .insert({
+          business_id: businessId,
+          sale_number: saleNumber || `SL-${Date.now()}`,
+          customer_id: null,
+          employee_id: employeeId,
+          subtotal: amount,
+          tax_amount: 0,
+          discount_amount: 0,
+          total_amount: amount,
+          amount_paid: amount,
+          balance_due: 0,
+          payment_method: 'cash',
+          payment_status: 'completed',
+        })
+        .select()
+        .single();
+        
+      if (saleError) throw new Error(saleError.message);
+
+      // 3. Insert into sale_items
+      const { error: itemsError } = await supabase
+        .from('sale_items')
+        .insert({
+          sale_id: sale.id,
+          service_id: selectedServiceId,
+          quantity: 1,
+          unit_price: amount,
+          discount: 0,
+          tax_amount: 0,
+          total: amount,
+        });
+        
+      if (itemsError) throw new Error(itemsError.message);
+
+      // 4. Insert into payments
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          sale_id: sale.id,
+          amount: amount,
+          payment_method: 'cash',
+          status: 'successful',
+        });
+        
+      if (paymentError) throw new Error(paymentError.message);
+
+      // 5. Insert transaction (Requirements 1.3, 3.1)
       const { error: txnError } = await supabase
         .from('transactions')
         .insert({
@@ -116,6 +170,7 @@ export function SaleRecordDialog({
           total_amount: amount,
           commission_amount: commissionPreview.commission,
           house_amount: commissionPreview.houseAmount,
+          notes: `Commission for Sale ${sale.sale_number}`,
           is_commission_paid: false,
         });
 

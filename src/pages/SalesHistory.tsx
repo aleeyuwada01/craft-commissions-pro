@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,8 @@ type StatusFilter = 'all' | 'completed' | 'pending' | 'partial' | 'refunded';
 
 export default function SalesHistory() {
     const { id: businessId } = useParams<{ id: string }>();
+    const { user } = useAuth();
+    const [isOwner, setIsOwner] = useState(false);
     const [sales, setSales] = useState<Sale[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -74,6 +77,19 @@ export default function SalesHistory() {
         }
         setLoading(false);
     };
+
+    useEffect(() => {
+        if (!user || !businessId) return;
+        const checkOwner = async () => {
+            const { data } = await supabase
+                .from('business_units')
+                .select('user_id')
+                .eq('id', businessId)
+                .single();
+            setIsOwner(data?.user_id === user.id);
+        };
+        checkOwner();
+    }, [user, businessId]);
 
     useEffect(() => {
         fetchSales();
@@ -152,7 +168,7 @@ export default function SalesHistory() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link to={`/business/${businessId}`}>
+                    <Link to={isOwner ? `/business/${businessId}` : '/'}>
                         <Button variant="ghost" size="icon">
                             <ArrowLeft className="w-5 h-5" />
                         </Button>

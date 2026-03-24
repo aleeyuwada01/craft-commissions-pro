@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -162,6 +163,7 @@ const businessTypeIcons: Record<string, React.ElementType> = {
 export default function BusinessSettings() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [business, setBusiness] = useState<{ name: string; color: string; type: string } | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,11 +190,15 @@ export default function BusinessSettings() {
 
     const { data: businessData } = await supabase
       .from('business_units')
-      .select('name, color, type')
+      .select('name, color, type, user_id')
       .eq('id', id)
       .maybeSingle();
 
     if (businessData) {
+      if (businessData.user_id !== user?.id) {
+        navigate('/');
+        return;
+      }
       setBusiness(businessData);
       setBusinessName(businessData.name);
       setBusinessColor(businessData.color || '#22c55e');
